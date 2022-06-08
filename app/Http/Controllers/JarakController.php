@@ -75,20 +75,25 @@ class JarakController extends Controller
 
     }
 
-    function getDistanceBetweenPoints($lat1, $lon1, $lat2, $lon2, $owner) {
-        $theta = $lon1 - $lon2;
-        $miles = (sin(deg2rad($lat1)) * sin(deg2rad($lat2))) + (cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($theta)));
-        $miles = acos($miles);
-        $miles = rad2deg($miles);
-        $miles = $miles * 60 * 1.1515;
-        $feet  = $miles * 5280;
-        $yards = $feet / 3;
-        $kilometers = $miles * 1.609344;
-        $meters = $kilometers * 1000;
-        $owner = $owner;
-        return compact('miles','feet','yards','kilometers','meters', 'owner'); 
-    }
-
+    private function getDistanceBetweenPoints($latitude1, $longitude1, $latitude2, $longitude2,$owner ,$unit = 'miles') {
+        $theta = $longitude1 - $longitude2; 
+        $distance = (sin(deg2rad($latitude1)) * sin(deg2rad($latitude2))) + (cos(deg2rad($latitude1)) * cos(deg2rad($latitude2)) * cos(deg2rad($theta))); 
+        $distance = acos($distance); 
+        $distance = rad2deg($distance); 
+        $distance = $distance * 60 * 1.1515; 
+        switch($unit) { 
+          case 'miles': 
+            break; 
+          case 'kilometers' : 
+            $distance = $distance * 1.609344; 
+        } 
+        $distance = round($distance,2)*1000;
+        // kembalikan nilai distance dan owner
+        return [
+            'meter' => $distance,
+            'owner' => $owner,
+        ];
+      }
     public function getDistance(Request $request)
     {
         $data = $this->database->getReference('angkot/1')->getValue();
