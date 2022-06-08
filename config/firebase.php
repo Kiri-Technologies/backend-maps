@@ -48,7 +48,9 @@ return [
              */
             'credentials' => [
                 // 'file' => env('FIREBASE_CREDENTIALS', env('GOOGLE_APPLICATION_CREDENTIALS')),
-                'file' => storage_path('/firebase/kiri-maps-firebase-adminsdk-8bu86-43591b216d.json'),
+                // 'file' => storage_path('/firebase/kiri-maps-firebase-adminsdk-8bu86-43591b216d.json'),
+                'file' => storage_path('/firebase/kiri-wahyu-firebase-adminsdk-tzbrr-614edcba34.json'),
+                
 
                 /*
                  * If you want to prevent the auto discovery of credentials, set the

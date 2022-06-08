@@ -15,8 +15,18 @@ class FirebaseController extends Controller
 
     public function index()
     {
-        $data = $this->database->getReference('angkot/1/2')->getValue();
+        $data = $this->database->getReference('coba/1')->getValue();
         // dd($data);
         return response()->json($data);
+    }
+
+    public function masukin(Request $request)
+    {
+
+        $a = $this->database->getReference('coba/1')->set([
+            'nama' => $request->nama,
+        ]);
+
+        return response()->json($a);
     }
 }
