@@ -24,8 +24,7 @@ class FirebaseController extends Controller
         usort($data, function ($a, $b) {
             return $a['timestamp'] <=> $b['timestamp'];
         });
-        dd($data);
-        // return response()->json($data);
+        return response()->json($data);
     }
 
     public function searchAngkot(Request $request) {
@@ -95,22 +94,67 @@ class FirebaseController extends Controller
             // The system measures the distance of an angkot that enters a small radius from the end of the route
             // The system chooses the angkot that is closest to the end of the route (buah batu) and is not full and is_operating = 1
             // get route_id from backend_lumen
-            $route_id = Http::get(env('API_ENDPOINT') . 'routes/' . $request->input('route_id'))->json();
+            $route = Http::get(env('API_ENDPOINT') . 'routes/' . $request->input('route_id'))->json();
             // bandingkan arah titik_naik dengan titik_awal route_id (string)
             // jika tidak sama maka bandingkan dengan titik_akhir
-            if ($route_id['titik_awal'] == $titik_naik['arah']) {
-                // ukuur jarak lat titik_awal dan long titik_awal ke lat dan long angkot
+            if ($route['titik_awal'] == $titik_naik['arah']) {
+                // ukur jarak lat titik_awal dan long titik_awal ke lat dan long angkot
+                foreach($angkot_radius_kecil_is_not_waiting_passenger as $angkot) {
+                    $angkot['distance'] = sqrt(($angkot['long'] - $route['long_titik_awal'])^2 + ($angkot['lat'] - $route['lat_titik_awal'])^2);
+                }
                 // sort angkot based on distance
+                usort($angkot_radius_kecil_is_not_waiting_passenger, function($a, $b) {
+                    return $a['distance'] < $b['distance'];
+                });
+                return response()->json($angkot_radius_kecil_is_not_waiting_passenger[0]['angkot_id']);
 
             } else {
-                // ukuur jarak lat titik_akhir dan long titik_akhir ke lat dan long angkot
+                // ukur jarak lat titik_akhir dan long titik_akhir ke lat dan long angkot
+                foreach($angkot_radius_kecil_is_not_waiting_passenger as $angkot) {
+                    $angkot['distance'] = sqrt(($angkot['long'] - $route['long_titik_akhir'])^2 + ($angkot['lat'] - $route['lat_titik_akhir'])^2);
+                }
                 // sort angkot based on distance
+                usort($angkot_radius_kecil_is_not_waiting_passenger, function($a, $b) {
+                    return $a['distance'] < $b['distance'];
+                });
+                return response()->json($angkot_radius_kecil_is_not_waiting_passenger[0]['angkot_id']);
+                
             }
-            
         } else if (count($angkot_radius_besar) > 0) {
-        
+            // The system measures the distance of an angkot that enters a small radius from the end of the route
+            // The system chooses the angkot that is closest to the end of the route (buah batu) and is not full and is_operating = 1
+            // get route_id from backend_lumen
+            $route = Http::get(env('API_ENDPOINT') . 'routes/' . $request->input('route_id'))->json();
+            // bandingkan arah titik_naik dengan titik_awal route_id (string)
+            // jika tidak sama maka bandingkan dengan titik_akhir
+            if ($route['titik_awal'] == $titik_naik['arah']) {
+                // ukur jarak lat titik_awal dan long titik_awal ke lat dan long angkot
+                foreach($angkot_radius_kecil_is_not_waiting_passenger as $angkot) {
+                    $angkot['distance'] = sqrt(($angkot['long'] - $route['long_titik_awal'])^2 + ($angkot['lat'] - $route['lat_titik_awal'])^2);
+                }
+                // sort angkot based on distance
+                usort($angkot_radius_kecil_is_not_waiting_passenger, function($a, $b) {
+                    return $a['distance'] < $b['distance'];
+                });
+                return response()->json($angkot_radius_kecil_is_not_waiting_passenger[0]['angkot_id']);
+
+            } else {
+                // ukur jarak lat titik_akhir dan long titik_akhir ke lat dan long angkot
+                foreach($angkot_radius_kecil_is_not_waiting_passenger as $angkot) {
+                    $angkot['distance'] = sqrt(($angkot['long'] - $route['long_titik_akhir'])^2 + ($angkot['lat'] - $route['lat_titik_akhir'])^2);
+                }
+                // sort angkot based on distance
+                usort($angkot_radius_kecil_is_not_waiting_passenger, function($a, $b) {
+                    return $a['distance'] < $b['distance'];
+                });
+                return response()->json($angkot_radius_kecil_is_not_waiting_passenger[0]['angkot_id']);
+            }
+
         } else {
-            $angkot = [];
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Angkot tidak ditemukan'
+            ],404);
         }
     }
     
