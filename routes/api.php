@@ -30,3 +30,6 @@ route::get('/cobainfirebase', [FirebaseController::class, 'index']);
 // Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 //     return $request->user();
 // });
+
+
+Route::post('/searchAngkot', [FirebaseController::class, 'searchAngkot']);
