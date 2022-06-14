@@ -28,10 +28,8 @@ Route::group(['middleware' => ['token']], function () {
 
 route::get('/cobainfirebase', [FirebaseController::class, 'index']);
 
-route::post("/tarikangkot", [JarakController::class, 'updatePosisition']);
-route::post("/oneways", [JarakController::class, 'oneWays']);
+route::post("/tarikangkot", [FirebaseController::class, 'tarikAngkot']);
 
-route::post("/jarak", [JarakController::class, 'getDistance']);
 
 // Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 //     return $request->user();
