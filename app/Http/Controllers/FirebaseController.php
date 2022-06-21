@@ -39,6 +39,9 @@ class FirebaseController extends Controller
         $titik_naik = Http::withHeaders([
             'Authorization' => env('TOKEN')
         ])->get(env('API_ENDPOINT') . 'haltevirtual/' . $request->input('titik_naik_id'))->json()['data'];
+        $titik_turun = Http::withHeaders([
+            'Authorization' => env('TOKEN')
+        ])->get(env('API_ENDPOINT') . 'haltevirtual/' . $request->input('titik_turun_id'))->json()['data'];
         $angkot = $this->database->getReference('angkot/route_' . $request->input('route_id'))->getValue();  // this reference to firebase
         $angkot = (array) $angkot;     
         $titik_naik['lat'] = (float)$titik_naik['lat'];
@@ -82,6 +85,7 @@ class FirebaseController extends Controller
         }
         
         // select angkot
+        $angkot_ditemukan = null;
         if (count($angkot_radius_kecil_is_waiting_passenger) > 0) {
             // The system selects the angkot that presses the timestampt (priority) button and is not full and is_operating = 1
             // select the first angkot that press button is_waiting_passengers
@@ -93,7 +97,7 @@ class FirebaseController extends Controller
             usort($prioritas, function($a, $b) {
                 return $a['timestamp'] <=> $b['timestamp'];
             });
-            return response()->json($prioritas[0]['angkot_id']);
+            $angkot_ditemukan = $prioritas[0]['angkot_id'];
 
         } else if (count($angkot_radius_kecil_is_not_waiting_passenger) > 0) {
             // The system measures the distance of an angkot that enters a small radius from the end of the route
@@ -117,7 +121,7 @@ class FirebaseController extends Controller
                 usort($angkot_radius_kecil_is_not_waiting_passenger, function($a, $b) {
                     return $a['distance'] < $b['distance'];
                 });
-                return response()->json($angkot_radius_kecil_is_not_waiting_passenger[0]['angkot_id']);
+                $angkot_ditemukan = $angkot_radius_kecil_is_not_waiting_passenger[0]['angkot_id'];
 
             } else {
                 // ukur jarak lat titik_akhir dan long titik_akhir ke lat dan long angkot
@@ -130,7 +134,7 @@ class FirebaseController extends Controller
                     return $a['distance'] < $b['distance'];
                 });
                 // dd($angkot_radius_kecil_is_not_waiting_passenger);
-                return response()->json($angkot_radius_kecil_is_not_waiting_passenger[0]['angkot_id']);
+                $angkot_ditemukan = $angkot_radius_kecil_is_not_waiting_passenger[0]['angkot_id'];
                 
             }
         } else if (count($angkot_radius_besar) > 0) {
@@ -151,7 +155,7 @@ class FirebaseController extends Controller
                 usort($angkot_radius_besar, function($a, $b) {
                     return $a['distance'] < $b['distance'];
                 });
-                return response()->json($angkot_radius_besar[0]['angkot_id']);
+                $angkot_ditemukan = $angkot_radius_besar[0]['angkot_id'];
 
             } else {
                 // ukur jarak lat titik_akhir dan long titik_akhir ke lat dan long angkot
@@ -162,7 +166,7 @@ class FirebaseController extends Controller
                 usort($angkot_radius_besar, function($a, $b) {
                     return $a['distance'] < $b['distance'];
                 });
-                return response()->json($angkot_radius_besar[0]['angkot_id']);
+                $angkot_ditemukan = $angkot_radius_besar[0]['angkot_id'];
             }
 
         } else {
@@ -171,6 +175,27 @@ class FirebaseController extends Controller
                 'message' => 'Angkot tidak ditemukan'
             ],404);
         }
+
+        $dataPerjalanan = Http::post(env('API_ENDPOINT') . '/createPerjalanan', [
+            'penumpang_id' => $request->input('user_id'),
+            'angkot_id' => $angkot_ditemukan,
+            // 'history_id' => $request->input('history_id'),
+            'tempat_naik_id' => $request->input('titik_naik_id'),
+            'tempat_turun_id' => $request->input('titik_turun_id'),
+            'supir_id' => $request->input('supir_id'),
+            'nama_tempat_naik' => $titik_naik->nama_lokasi,
+            'nama_tempat_turun' => $titik_turun->nama_lokasi,
+            // 'jarak' => $request->input('jarak'),
+            'rekomendasi_harga' => $request->input('rekomendasi_harga'),
+            'is_done' => 0,
+            'is_connected_with_driver' => $request->input('is_connected_with_driver'),
+        ]);
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Perjalanan berhasil ditambahkan',
+            'data' => $dataPerjalanan->json()['data']
+        ],201);
     }
     
 }
