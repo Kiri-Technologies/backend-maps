@@ -23,6 +23,8 @@ Route::group(['middleware' => ['token']], function () {
         return response()->json($request->get('user'));
     });
 
+    Route::post('/searchAngkot', [FirebaseController::class, 'searchAngkot']);
+
 });
 
 route::get('/cobainfirebase', [FirebaseController::class, 'index']);
@@ -32,4 +34,3 @@ route::get('/cobainfirebase', [FirebaseController::class, 'index']);
 // });
 
 
-Route::post('/searchAngkot', [FirebaseController::class, 'searchAngkot']);

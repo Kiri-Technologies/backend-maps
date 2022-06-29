@@ -19,7 +19,7 @@ class FirebaseController extends Controller
         $data = $this->database->getReference('setpoints/setpoint_2/prioritas')->getValue();
         // convert data to array
         $data = json_decode(json_encode($data), true);
-        
+
         // sort data by timestamp and show angkot id
         usort($data, function ($a, $b) {
             return $a['timestamp'] <=> $b['timestamp'];
@@ -27,7 +27,8 @@ class FirebaseController extends Controller
         return response()->json($data);
     }
 
-    public function searchAngkot(Request $request) {
+    public function searchAngkot(Request $request)
+    {
         // 1. Get data titik_naik from backend_lumen
         // hit api /api/haltevirtual/id
         // 2. Find Angkot with route_id that send by user
@@ -39,62 +40,65 @@ class FirebaseController extends Controller
         $titik_naik = Http::withHeaders([
             'Authorization' => env('TOKEN')
         ])->get(env('API_ENDPOINT') . 'haltevirtual/' . $request->input('titik_naik_id'))->json()['data'];
+        $titik_turun = Http::withHeaders([
+            'Authorization' => env('TOKEN')
+        ])->get(env('API_ENDPOINT') . 'haltevirtual/' . $request->input('titik_turun_id'))->json()['data'];
         $angkot = $this->database->getReference('angkot/route_' . $request->input('route_id'))->getValue();  // this reference to firebase
-        $angkot = (array) $angkot;     
+        $angkot = (array) $angkot;
         $titik_naik['lat'] = (float)$titik_naik['lat'];
         $titik_naik['long'] = (float)$titik_naik['long'];
         // filter angkot
         $angkot = array_filter($angkot, function ($angkot) use ($titik_naik) {
             return $angkot['arah'] == $titik_naik['arah'] && $angkot['is_beroperasi'] == 1 && $angkot['is_full'] == 0;
         });
-        
+
 
         // filter radius        
-        $radius_kecil = 0.0001*5;
+        $radius_kecil = 0.0001 * 5;
         $radius_besar = 0.01;
 
         $angkot_radius_kecil_is_waiting_passenger = [];
         $angkot_radius_kecil_is_not_waiting_passenger = [];
         $angkot_radius_besar = [];
-        foreach($angkot as $ak) {
+        foreach ($angkot as $ak) {
             // small radius
-            $lat_angkot_small = $ak['lat'] < $titik_naik['lat'] + $radius_kecil && $ak['lat'] > $titik_naik['lat'] - $radius_kecil; 
+            $lat_angkot_small = $ak['lat'] < $titik_naik['lat'] + $radius_kecil && $ak['lat'] > $titik_naik['lat'] - $radius_kecil;
             $long_angkot_small = $ak['long'] < $titik_naik['long'] + $radius_kecil && $ak['long'] > $titik_naik['long'] - $radius_kecil;
             // big radius
             $lat_angkot_big = $ak['lat'] < $titik_naik['lat'] + $radius_besar && $ak['lat'] > $titik_naik['lat'] - $radius_besar;
             $long_angkot_big = $ak['long'] < $titik_naik['long'] + $radius_besar && $ak['long'] > $titik_naik['long'] - $radius_besar;
 
             if ($lat_angkot_small && $long_angkot_small) {
-                    if ($ak['is_waiting_passengers'] == 1) {
-                        // The system selects the angkot that presses the timestampt (priority) button and is not full and is_operating = 1
-                        // select the first angkot that press button is_waiting_passengers
-                        array_push($angkot_radius_kecil_is_waiting_passenger, $ak);
-                    } else {
-                        // The system measures the distance of an angkot that enters a small radius from the end of the route
-                        // The system chooses the angkot that is closest to the end of the route (buah batu) and is not full and is_operating = 1
-                        array_push($angkot_radius_kecil_is_not_waiting_passenger, $ak);
-                    }
+                if ($ak['is_waiting_passengers'] == 1) {
+                    // The system selects the angkot that presses the timestampt (priority) button and is not full and is_operating = 1
+                    // select the first angkot that press button is_waiting_passengers
+                    array_push($angkot_radius_kecil_is_waiting_passenger, $ak);
+                } else {
+                    // The system measures the distance of an angkot that enters a small radius from the end of the route
+                    // The system chooses the angkot that is closest to the end of the route (buah batu) and is not full and is_operating = 1
+                    array_push($angkot_radius_kecil_is_not_waiting_passenger, $ak);
+                }
             } else if ($lat_angkot_big && $long_angkot_big) {
-                    // The system measures the distance of angkot that enter within a large radius of the end of the route (buah batu)
-                    // The system chooses the angkot that is the farthest from the end of the route (fruit stone) and is not full and is_operating = 1
-                    array_push($angkot_radius_besar, $ak);
+                // The system measures the distance of angkot that enter within a large radius of the end of the route (buah batu)
+                // The system chooses the angkot that is the farthest from the end of the route (fruit stone) and is not full and is_operating = 1
+                array_push($angkot_radius_besar, $ak);
             }
         }
-        
+
         // select angkot
+        $angkot_ditemukan = null;
         if (count($angkot_radius_kecil_is_waiting_passenger) > 0) {
             // The system selects the angkot that presses the timestampt (priority) button and is not full and is_operating = 1
             // select the first angkot that press button is_waiting_passengers
             // get firebase/setpoints/prioritas
-            $prioritas = $this->database->getReference('setpoints/setpoint_' . $request->input('titik_naik_id'). '/prioritas')->getValue();
+            $prioritas = $this->database->getReference('setpoints/setpoint_' . $request->input('titik_naik_id') . '/prioritas')->getValue();
             // convert data to array
             $prioritas = json_decode(json_encode($prioritas), true);
             // sort prioritas based on timestamp
-            usort($prioritas, function($a, $b) {
+            usort($prioritas, function ($a, $b) {
                 return $a['timestamp'] <=> $b['timestamp'];
             });
-            return response()->json($prioritas[0]['angkot_id']);
-
+            $angkot_ditemukan = $prioritas[0]['angkot_id'];
         } else if (count($angkot_radius_kecil_is_not_waiting_passenger) > 0) {
             // The system measures the distance of an angkot that enters a small radius from the end of the route
             // The system chooses the angkot that is closest to the end of the route (buah batu) and is not full and is_operating = 1
@@ -110,28 +114,26 @@ class FirebaseController extends Controller
             // jika tidak sama maka bandingkan dengan titik_akhir
             if ($route['titik_awal'] == $titik_naik['arah']) {
                 // ukur jarak lat titik_awal dan long titik_awal ke lat dan long angkot
-                foreach($angkot_radius_kecil_is_not_waiting_passenger as $index => $angkot) {
+                foreach ($angkot_radius_kecil_is_not_waiting_passenger as $index => $angkot) {
                     $angkot_radius_kecil_is_not_waiting_passenger[$index]['distance'] = sqrt(pow(($angkot['long'] - $route['long_titik_awal']), 2) + pow(($angkot['lat'] - $route['lat_titik_awal']), 2));
                 }
                 // sort angkot based on distance
-                usort($angkot_radius_kecil_is_not_waiting_passenger, function($a, $b) {
+                usort($angkot_radius_kecil_is_not_waiting_passenger, function ($a, $b) {
                     return $a['distance'] < $b['distance'];
                 });
-                return response()->json($angkot_radius_kecil_is_not_waiting_passenger[0]['angkot_id']);
-
+                $angkot_ditemukan = $angkot_radius_kecil_is_not_waiting_passenger[0]['angkot_id'];
             } else {
                 // ukur jarak lat titik_akhir dan long titik_akhir ke lat dan long angkot
-                foreach($angkot_radius_kecil_is_not_waiting_passenger as $index => $angkot) {
+                foreach ($angkot_radius_kecil_is_not_waiting_passenger as $index => $angkot) {
                     $angkot_radius_kecil_is_not_waiting_passenger[$index]['distance'] = sqrt(pow(($angkot['long'] - $route['long_titik_akhir']), 2) + pow(($angkot['lat'] - $route['lat_titik_akhir']), 2));
                 }
 
                 // sort angkot based on distance
-                usort($angkot_radius_kecil_is_not_waiting_passenger, function($a, $b) {
+                usort($angkot_radius_kecil_is_not_waiting_passenger, function ($a, $b) {
                     return $a['distance'] < $b['distance'];
                 });
                 // dd($angkot_radius_kecil_is_not_waiting_passenger);
-                return response()->json($angkot_radius_kecil_is_not_waiting_passenger[0]['angkot_id']);
-                
+                $angkot_ditemukan = $angkot_radius_kecil_is_not_waiting_passenger[0]['angkot_id'];
             }
         } else if (count($angkot_radius_besar) > 0) {
             // The system measures the distance of an angkot that enters a small radius from the end of the route
@@ -144,33 +146,126 @@ class FirebaseController extends Controller
             // jika tidak sama maka bandingkan dengan titik_akhir
             if ($route['titik_awal'] == $titik_naik['arah']) {
                 // ukur jarak lat titik_awal dan long titik_awal ke lat dan long angkot
-                foreach($angkot_radius_besar as $index => $angkot) {
+                foreach ($angkot_radius_besar as $index => $angkot) {
                     $angkot_radius_besar[$index]['distance'] = sqrt(pow(($angkot['long'] - $route['long_titik_awal']), 2) + pow(($angkot['lat'] - $route['lat_titik_awal']), 2));
                 }
                 // sort angkot based on distance
-                usort($angkot_radius_besar, function($a, $b) {
+                usort($angkot_radius_besar, function ($a, $b) {
                     return $a['distance'] < $b['distance'];
                 });
-                return response()->json($angkot_radius_besar[0]['angkot_id']);
-
+                $angkot_ditemukan = $angkot_radius_besar[0]['angkot_id'];
             } else {
                 // ukur jarak lat titik_akhir dan long titik_akhir ke lat dan long angkot
-                foreach($angkot_radius_besar as $index => $angkot) {
+                foreach ($angkot_radius_besar as $index => $angkot) {
                     $angkot_radius_besar[$index]['distance'] = sqrt(pow(($angkot['long'] - $route['long_titik_akhir']), 2) + pow(($angkot['lat'] - $route['lat_titik_akhir']), 2));
                 }
                 // sort angkot based on distance
-                usort($angkot_radius_besar, function($a, $b) {
+                usort($angkot_radius_besar, function ($a, $b) {
                     return $a['distance'] < $b['distance'];
                 });
-                return response()->json($angkot_radius_besar[0]['angkot_id']);
+                $angkot_ditemukan = $angkot_radius_besar[0]['angkot_id'];
             }
-
         } else {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Angkot tidak ditemukan'
-            ],404);
+            ], 404);
         }
+
+        $angkot_supir = Http::withHeaders([
+            'Authorization' => env('TOKEN')
+        ])->get(env('API_ENDPOINT') . 'angkot/' . $angkot_ditemukan)->json()['data'];
+
+        $jarak = round($this->setTwoPoints($titik_naik['lat'], $titik_naik['long'], $titik_turun['lat'], $titik_turun['long']), 1);
+        $price = $this->priceRecomendation($jarak);
+        $dataPerjalanan = Http::withHeaders([
+            'Authorization' => env('TOKEN')
+        ])->post(env('API_ENDPOINT') . 'perjalanan/create', [
+            'penumpang_id' => $request->input('user_id'),
+            'angkot_id' => "$angkot_ditemukan",
+            'history_id' => '1',
+            'tempat_naik_id' => $request->input('titik_naik_id'),
+            'tempat_turun_id' => $request->input('titik_turun_id'),
+            // 'supir_id' => $angkot_supir['supir_id'],
+            'supir_id' => 'supir-123456',
+            'nama_tempat_naik' => $titik_naik['nama_lokasi'],
+            'nama_tempat_turun' => $titik_turun['nama_lokasi'],
+            'jarak' => "$jarak Km",
+            'rekomendasi_harga' => "$price",
+            'is_done' => false,
+            'is_connected_with_driver' => false,
+        ])->json()['data'];
+
+
+        // push data penumpang ke firebase
+        $data_penumpang = $this->database->getReference('penumpang_naik_turun/angkot_' . $angkot_ditemukan . '/naik/perjalanan_' . $dataPerjalanan['id'])->set([
+            'angkot_id' => $angkot_ditemukan,
+            'id_perjalanan' => $dataPerjalanan['id'],
+            'id_titik_naik' => $titik_naik['id'],
+            'id_titik_turun' => $titik_turun['id'],
+            'id_user' => $request->input('user_id'),
+            'titik_naik' => $titik_naik['nama_lokasi'],
+            'titik_turun' => $titik_turun['nama_lokasi'],
+        ]);
+
+        // check data penumpang berhasil di push ke firebase
+        if ($data_penumpang) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Perjalanan berhasil ditambahkan',
+                'data' => $dataPerjalanan
+            ], 200);
+        } else {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Perjalanan gagal ditambahkan'
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Perjalanan berhasil ditambahkan',
+            'data' => $dataPerjalanan,
+        ], 201);
     }
+
+    function setTwoPoints(
+        $latitudeFrom,
+        $longitudeFrom,
+        $latitudeTo,
+        $longitudeTo
+    ) {
+        $long1 = deg2rad($longitudeFrom);
+        $long2 = deg2rad($longitudeTo);
+        $lat1 = deg2rad($latitudeFrom);
+        $lat2 = deg2rad($latitudeTo);
+
+        //Haversine Formula
+        $dlong = $long2 - $long1;
+        $dlati = $lat2 - $lat1;
+
+        $val = pow(sin($dlati / 2), 2) + cos($lat1) * cos($lat2) * pow(sin($dlong / 2), 2);
+
+        $res = 2 * asin(sqrt($val));
+
+        $radius = 3958.756;
+
+        return ($res * $radius);
+    }
+
+    function priceRecomendation($jarak)
+    {
+        $price = 3000;
+        if ($jarak < 5) {
+            $price;
+        } else if ($jarak > 5 && $jarak < 10) {
+            $price = 5000;
+        } else {
+            $price = 7000;
+        }
+
+        return $price;
+    }
+
     
 }
