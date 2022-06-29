@@ -24,11 +24,12 @@ Route::group(['middleware' => ['token']], function () {
         return response()->json($request->get('user'));
     });
 
+    Route::post('/searchAngkot', [FirebaseController::class, 'searchAngkot']);
+    Route::post("/setLocation", [FirebaseController::class, 'setLocation']);
 });
 
 route::get('/cobainfirebase', [FirebaseController::class, 'index']);
 
-route::post("/tarikangkot", [FirebaseController::class, 'tarikAngkot']);
 
 
 // Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
