@@ -25,6 +25,8 @@ Route::group(['middleware' => ['token']], function () {
 
     Route::post('/searchangkot', [FirebaseController::class, 'searchAngkot']);
     Route::post('/scanqrcode', [FirebaseController::class, 'scanQRCode']);
+    Route::post('/perjalananselesai', [FirebaseController::class, 'perjalananIsDone']);
+    Route::post('/tarikangkot', [FirebaseController::class, 'setArahAndIsBeroperasi']);
 
 });
 

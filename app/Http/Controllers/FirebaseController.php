@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Validator;
 
 class FirebaseController extends Controller
 {
@@ -304,5 +305,49 @@ class FirebaseController extends Controller
             'message' => 'Perjalanan berhasil di update',
             'data' => $update_data_perjalanan
         ], 200);
+    }
+
+    public function perjalananIsDone(Request $request) {
+        // Remove perjalanan from perjalanan_naik_turun on angkot{id}/turun
+
+        $get_perjalanan = $this->database->getReference('penumpang_naik_turun/angkot_' . $request->input('angkot_id') . '/turun/perjalanan_' . $request->input('perjalanan_id'))->remove();
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'perjalanan selesai'
+        ],200);
+    }
+
+    public function setArahAndIsBeroperasi(Request $request) {
+        
+        // validate input
+        $validator = Validator::make($request->all(), [
+            'angkot_id' => 'required',
+            'is_beroperasi' => 'boolean',
+            'arah' => 'string',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $validator->errors()
+            ], 400);
+        }
+
+        if ($request->input('arah')) {
+            $angkot_arah = $this->database->getReference('angkot/route_' . $request->input('route_id') . '/angkot_' . $request->input('angkot_id') . '/arah')->set(
+                $request->input('arah')
+            );
+        }
+
+        if ($request->input('is_beroperasi')) {
+            $angkot_is_beroperasi = $this->database->getReference('angkot/route_' . $request->input('route_id') . '/angkot_' . $request->input('angkot_id') . '/is_beroperasi')->set(
+                $request->input('is_beroperasi')
+            );
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Arah dan status beroperasi berhasil di update'
+        ],200);
     }
 }
