@@ -60,6 +60,18 @@ class FirebaseController extends Controller
         $angkot_radius_kecil_is_waiting_passenger = [];
         $angkot_radius_kecil_is_not_waiting_passenger = [];
         $angkot_radius_besar = [];
+
+        // make sure penumpang is in radius_kecil before searchAngkot
+        // check titik_naik['lat'] and titik_naik['long'] is in radius_kecil
+        if (
+            $request->input('lat_penumpang') > $titik_naik['lat'] + $radius_kecil || $request->input('lat_penumpang') < $titik_naik['lat'] - $radius_kecil
+            || $request->input('long_penumpang') > $titik_naik['long'] + $radius_kecil || $request->input('long_penumpang') < $titik_naik['long'] - $radius_kecil
+        ) {
+            return response()->json([
+                'message' => 'Anda diluar Halte Virtual',
+            ], 404);
+        }
+
         foreach ($angkot as $ak) {
             // small radius
             $lat_angkot_small = $ak['lat'] < $titik_naik['lat'] + $radius_kecil && $ak['lat'] > $titik_naik['lat'] - $radius_kecil;
@@ -267,5 +279,30 @@ class FirebaseController extends Controller
         return $price;
     }
 
-    
+    public function scanQRCode(Request $request)
+    {
+        // send user_id, perjalanan_id
+        // - update is_connected_with_driver = true ke backend lumen
+        // - delete data perjalanan di data calon penumpang naik sesuai id angkot
+        // - insert data perjalanan di data penumpang turun sesuai id angkot
+
+        $get_perjalanan = $this->database->getReference('penumpang_naik_turun/angkot_' . $request->input('angkot_id') . '/naik/perjalanan_' . $request->input('perjalanan_id'))->getSnapshot()->getValue();
+        $set_penumpang = $this->database->getReference('penumpang_naik_turun/angkot_' . $request->input('angkot_id') . '/turun/perjalanan_' . $request->input('perjalanan_id'))->set(
+            $get_perjalanan
+        );
+        // delete data perjalanan
+        $delete_perjalanan = $this->database->getReference('penumpang_naik_turun/angkot_' . $request->input('angkot_id') . '/naik/perjalanan_' . $request->input('perjalanan_id'))->remove();
+        $update_data_perjalanan = Http::withHeaders([
+            'Authorization' => env('TOKEN')
+        ])->post(env('API_ENDPOINT') . 'perjalanan/' . $request->input('perjalanan_id') . '/update', [
+            'is_done' => false,
+            'is_connected_with_driver' => true,
+        ])->json()['data'];
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Perjalanan berhasil di update',
+            'data' => $update_data_perjalanan
+        ], 200);
+    }
 }

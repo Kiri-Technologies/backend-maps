@@ -23,7 +23,8 @@ Route::group(['middleware' => ['token']], function () {
         return response()->json($request->get('user'));
     });
 
-    Route::post('/searchAngkot', [FirebaseController::class, 'searchAngkot']);
+    Route::post('/searchangkot', [FirebaseController::class, 'searchAngkot']);
+    Route::post('/scanqrcode', [FirebaseController::class, 'scanQRCode']);
 
 });
 
