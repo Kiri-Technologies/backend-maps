@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\FirebaseController;
-use App\Http\Controllers\JarakController;
+use App\Http\Controllers\ToggleController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
@@ -26,6 +26,10 @@ Route::group(['middleware' => ['token']], function () {
 
     Route::post('/searchAngkot', [FirebaseController::class, 'searchAngkot']);
     Route::post("/setLocation", [FirebaseController::class, 'setLocation']);
+
+    // button toggle
+    Route::post('/togglestop', [ToggleController::class, 'toggleStop']);
+    Route::post('/togglefull', [ToggleController::class, 'toggleFull']);
 });
 
 route::get('/cobainfirebase', [FirebaseController::class, 'index']);
