@@ -61,7 +61,6 @@ class ToggleController extends Controller
                 if($value['arah'] == $arahAngkot){
                     $lathalte = $value['lat'];
                     $longhalte = $value['long'];
-                    $arahSama[] = $value;
                     
                     // jarak 50 M
                     $radius = 0.0001 * 5;
