@@ -157,12 +157,12 @@ class FirebaseController extends Controller
         // 4. Filter with radius: count lat and long
         // 5. Return data
 
-        $titik_naik = Http::withHeaders([
-            'Authorization' => env('TOKEN')
-        ])->get(env('API_ENDPOINT') . 'haltevirtual/' . $request->input('titik_naik_id'))->json()['data'];
-        $titik_turun = Http::withHeaders([
-            'Authorization' => env('TOKEN')
-        ])->get(env('API_ENDPOINT') . 'haltevirtual/' . $request->input('titik_turun_id'))->json()['data'];
+        $titik_naik = Http::withToken(
+            $request->bearerToken()
+        )->get(env('API_ENDPOINT') . 'haltevirtual/' . $request->input('titik_naik_id'))->json()['data'];
+        $titik_turun = Http::withToken(
+            $request->bearerToken()
+        )->get(env('API_ENDPOINT') . 'haltevirtual/' . $request->input('titik_turun_id'))->json()['data'];
         $angkot = $this->database->getReference('angkot/route_' . $request->input('route_id'))->getValue();  // this reference to firebase
         $angkot = (array) $angkot;
         $titik_naik['lat'] = (float)$titik_naik['lat'];
@@ -223,9 +223,9 @@ class FirebaseController extends Controller
             // The system measures the distance of an angkot that enters a small radius from the end of the route
             // The system chooses the angkot that is closest to the end of the route (buah batu) and is not full and is_operating = 1
             // get route_id from backend_lumen
-            $route = Http::withHeaders([
-                'Authorization' => env('TOKEN')
-            ])->get(env('API_ENDPOINT') . 'routes/' . $request->input('route_id'))->json()['data'];
+            $route = Http::withToken(
+                $request->bearerToken()
+            )->get(env('API_ENDPOINT') . 'routes/' . $request->input('route_id'))->json()['data'];
             $route['lat_titik_awal'] = (float)$route['lat_titik_awal'];
             $route['long_titik_awal'] = (float)$route['long_titik_awal'];
             $route['lat_titik_akhir'] = (float)$route['lat_titik_akhir'];
@@ -259,9 +259,9 @@ class FirebaseController extends Controller
             // The system measures the distance of an angkot that enters a small radius from the end of the route
             // The system chooses the angkot that is closest to the end of the route (buah batu) and is not full and is_operating = 1
             // get route_id from backend_lumen
-            $route = Http::withHeaders([
-                'Authorization' => env('TOKEN')
-            ])->get(env('API_ENDPOINT') . 'routes/' . $request->input('route_id'))->json()['data'];
+            $route = Http::withToken(
+                $request->bearerToken()
+            )->get(env('API_ENDPOINT') . 'routes/' . $request->input('route_id'))->json()['data'];
             // bandingkan arah titik_naik dengan titik_awal route_id (string)
             // jika tidak sama maka bandingkan dengan titik_akhir
             if ($route['titik_awal'] == $titik_naik['arah']) {
@@ -292,15 +292,15 @@ class FirebaseController extends Controller
             ], 404);
         }
 
-        $angkot_supir = Http::withHeaders([
-            'Authorization' => env('TOKEN')
-        ])->get(env('API_ENDPOINT') . 'angkot/' . $angkot_ditemukan)->json()['data'];
+        $angkot_supir = Http::withToken(
+            $request->bearerToken()
+        )->get(env('API_ENDPOINT') . 'angkot/' . $angkot_ditemukan)->json()['data'];
 
         $jarak = round($this->setTwoPoints($titik_naik['lat'], $titik_naik['long'], $titik_turun['lat'], $titik_turun['long']), 1);
         $price = $this->priceRecomendation($jarak);
-        $dataPerjalanan = Http::withHeaders([
-            'Authorization' => env('TOKEN')
-        ])->post(env('API_ENDPOINT') . 'perjalanan/create', [
+        $dataPerjalanan = Http::withToken(
+            $request->bearerToken()
+        )->post(env('API_ENDPOINT') . 'perjalanan/create', [
             'penumpang_id' => $request->input('user_id'),
             'angkot_id' => "$angkot_ditemukan",
             'history_id' => '1',

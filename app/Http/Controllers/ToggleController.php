@@ -32,17 +32,19 @@ class ToggleController extends Controller
         $is_waiting_for_passenger = $request->is_waiting_for_passengers;
         $lat = $request->lat;
         $long = $request->long;
+        $routeIdAngkot = $request->route_id;
 
         try {
             // 2. get data halte virtual dari backend lumen yang arahnya sama kaya angkot
             // ==============================================================================================================================
-            $routeIdAngkot = Http::withHeaders([
-                'Authorization' => 'Bearer '.env('TOKEN'),
-                ])->get(env('API_ENDPOINT') . 'angkot/1')->json()['data']['route_id'];
+            // $routeIdAngkot = Http::withHeaders([
+            //     'Authorization' => 'Bearer '.env('TOKEN'),
+            //     ])->get(env('API_ENDPOINT') . 'angkot/1')->json()['data']['route_id'];
 
-            $halteVirtual = Http::withHeaders([
-                'Authorization' => 'Bearer '.env('TOKEN'),
-            ])->get(env('API_ENDPOINT') . 'haltevirtual?route_id='.$routeIdAngkot)->json()['data'];
+            $halteVirtual = Http::withToken(
+                $request->bearerToken()
+            )->get(env('API_ENDPOINT') . 'haltevirtual?route_id='.$routeIdAngkot)->json()['data'];
+
         }
 
         catch (\Exception $e) {
@@ -109,11 +111,12 @@ class ToggleController extends Controller
         // ======================================================
         $angkot_id = $request->angkot_id;
         $is_full = $request->is_full;
+        $route_id = $request->route_id;
 
         // 2. update data is_full sesuai angkot_id ke firebase
         // ======================================================
         try {
-            $this->database->getReference('angkot/' . 'route_1/angkot_' . $angkot_id . "/")->update([
+            $this->database->getReference('angkot/' . 'route_' . $route_id . '/angkot_' . $angkot_id . "/")->update([
                 'is_full' => $is_full === '1' ? true : false,
             ]);
             return response()->json([
