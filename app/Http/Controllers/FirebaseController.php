@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Validator;
 
 class FirebaseController extends Controller
 {
@@ -180,6 +181,18 @@ class FirebaseController extends Controller
         $angkot_radius_kecil_is_waiting_passenger = [];
         $angkot_radius_kecil_is_not_waiting_passenger = [];
         $angkot_radius_besar = [];
+
+        // make sure penumpang is in radius_kecil before searchAngkot
+        // check titik_naik['lat'] and titik_naik['long'] is in radius_kecil
+        if (
+            $request->input('lat_penumpang') > $titik_naik['lat'] + $radius_kecil || $request->input('lat_penumpang') < $titik_naik['lat'] - $radius_kecil
+            || $request->input('long_penumpang') > $titik_naik['long'] + $radius_kecil || $request->input('long_penumpang') < $titik_naik['long'] - $radius_kecil
+        ) {
+            return response()->json([
+                'message' => 'Anda diluar Halte Virtual',
+            ], 404);
+        }
+
         foreach ($angkot as $ak) {
             // small radius
             $lat_angkot_small = $ak['lat'] < $titik_naik['lat'] + $radius_kecil && $ak['lat'] > $titik_naik['lat'] - $radius_kecil;
@@ -206,7 +219,7 @@ class FirebaseController extends Controller
         }
 
         // select angkot
-        $angkot_ditemukan = null;
+        $angkot_is_find = null;
         if (count($angkot_radius_kecil_is_waiting_passenger) > 0) {
             // The system selects the angkot that presses the timestampt (priority) button and is not full and is_operating = 1
             // select the first angkot that press button is_waiting_passengers
@@ -218,7 +231,7 @@ class FirebaseController extends Controller
             usort($prioritas, function ($a, $b) {
                 return $a['timestamp'] <=> $b['timestamp'];
             });
-            $angkot_ditemukan = $prioritas[0]['angkot_id'];
+            $angkot_is_find = $prioritas[0]['angkot_id'];
         } else if (count($angkot_radius_kecil_is_not_waiting_passenger) > 0) {
             // The system measures the distance of an angkot that enters a small radius from the end of the route
             // The system chooses the angkot that is closest to the end of the route (buah batu) and is not full and is_operating = 1
@@ -241,7 +254,7 @@ class FirebaseController extends Controller
                 usort($angkot_radius_kecil_is_not_waiting_passenger, function ($a, $b) {
                     return $a['distance'] < $b['distance'];
                 });
-                $angkot_ditemukan = $angkot_radius_kecil_is_not_waiting_passenger[0]['angkot_id'];
+                $angkot_is_find = $angkot_radius_kecil_is_not_waiting_passenger[0]['angkot_id'];
             } else {
                 // ukur jarak lat titik_akhir dan long titik_akhir ke lat dan long angkot
                 foreach ($angkot_radius_kecil_is_not_waiting_passenger as $index => $angkot) {
@@ -253,7 +266,7 @@ class FirebaseController extends Controller
                     return $a['distance'] < $b['distance'];
                 });
                 // dd($angkot_radius_kecil_is_not_waiting_passenger);
-                $angkot_ditemukan = $angkot_radius_kecil_is_not_waiting_passenger[0]['angkot_id'];
+                $angkot_is_find = $angkot_radius_kecil_is_not_waiting_passenger[0]['angkot_id'];
             }
         } else if (count($angkot_radius_besar) > 0) {
             // The system measures the distance of an angkot that enters a small radius from the end of the route
@@ -273,7 +286,7 @@ class FirebaseController extends Controller
                 usort($angkot_radius_besar, function ($a, $b) {
                     return $a['distance'] < $b['distance'];
                 });
-                $angkot_ditemukan = $angkot_radius_besar[0]['angkot_id'];
+                $angkot_is_find = $angkot_radius_besar[0]['angkot_id'];
             } else {
                 // ukur jarak lat titik_akhir dan long titik_akhir ke lat dan long angkot
                 foreach ($angkot_radius_besar as $index => $angkot) {
@@ -283,7 +296,7 @@ class FirebaseController extends Controller
                 usort($angkot_radius_besar, function ($a, $b) {
                     return $a['distance'] < $b['distance'];
                 });
-                $angkot_ditemukan = $angkot_radius_besar[0]['angkot_id'];
+                $angkot_is_find = $angkot_radius_besar[0]['angkot_id'];
             }
         } else {
             return response()->json([
@@ -294,7 +307,7 @@ class FirebaseController extends Controller
 
         $angkot_supir = Http::withToken(
             $request->bearerToken()
-        )->get(env('API_ENDPOINT') . 'angkot/' . $angkot_ditemukan)->json()['data'];
+        )->get(env('API_ENDPOINT') . 'angkot/' . $angkot_is_find)->json()['data'];
 
         $jarak = round($this->setTwoPoints($titik_naik['lat'], $titik_naik['long'], $titik_turun['lat'], $titik_turun['long']), 1);
         $price = $this->priceRecomendation($jarak);
@@ -302,7 +315,7 @@ class FirebaseController extends Controller
             $request->bearerToken()
         )->post(env('API_ENDPOINT') . 'perjalanan/create', [
             'penumpang_id' => $request->input('user_id'),
-            'angkot_id' => "$angkot_ditemukan",
+            'angkot_id' => "$angkot_is_find",
             'history_id' => '1',
             'tempat_naik_id' => $request->input('titik_naik_id'),
             'tempat_turun_id' => $request->input('titik_turun_id'),
@@ -318,8 +331,8 @@ class FirebaseController extends Controller
 
 
         // push data penumpang ke firebase
-        $data_penumpang = $this->database->getReference('penumpang_naik_turun/angkot_' . $angkot_ditemukan . '/naik/perjalanan_' . $dataPerjalanan['id'])->set([
-            'angkot_id' => $angkot_ditemukan,
+        $data_penumpang = $this->database->getReference('penumpang_naik_turun/angkot_' . $angkot_is_find . '/naik/perjalanan_' . $dataPerjalanan['id'])->set([
+            'angkot_id' => $angkot_is_find,
             'id_perjalanan' => $dataPerjalanan['id'],
             'id_titik_naik' => $titik_naik['id'],
             'id_titik_turun' => $titik_turun['id'],
@@ -385,5 +398,80 @@ class FirebaseController extends Controller
         }
 
         return $price;
+    }
+
+    public function scanQRCode(Request $request)
+    {
+        // send user_id, perjalanan_id
+        // - update is_connected_with_driver = true ke backend lumen
+        // - delete data perjalanan di data calon penumpang naik sesuai id angkot
+        // - insert data perjalanan di data penumpang turun sesuai id angkot
+
+        $get_perjalanan = $this->database->getReference('penumpang_naik_turun/angkot_' . $request->input('angkot_id') . '/naik/perjalanan_' . $request->input('perjalanan_id'))->getSnapshot()->getValue();
+        $set_penumpang = $this->database->getReference('penumpang_naik_turun/angkot_' . $request->input('angkot_id') . '/turun/perjalanan_' . $request->input('perjalanan_id'))->set(
+            $get_perjalanan
+        );
+        // delete data perjalanan
+        $delete_perjalanan = $this->database->getReference('penumpang_naik_turun/angkot_' . $request->input('angkot_id') . '/naik/perjalanan_' . $request->input('perjalanan_id'))->remove();
+        $update_data_perjalanan = Http::withHeaders([
+            'Authorization' => env('TOKEN')
+        ])->post(env('API_ENDPOINT') . 'perjalanan/' . $request->input('perjalanan_id') . '/update', [
+            'is_done' => false,
+            'is_connected_with_driver' => true,
+        ])->json()['data'];
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Perjalanan berhasil di update',
+            'data' => $update_data_perjalanan
+        ], 200);
+    }
+
+    public function perjalananIsDone(Request $request) {
+        // Remove perjalanan from perjalanan_naik_turun on angkot{id}/turun
+
+        $get_perjalanan = $this->database->getReference('penumpang_naik_turun/angkot_' . $request->input('angkot_id') . '/turun/perjalanan_' . $request->input('perjalanan_id'))->remove();
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'perjalanan selesai'
+        ],200);
+    }
+
+    public function setArahAndIsBeroperasi(Request $request) {
+        
+        // validate input
+        $validator = Validator::make($request->all(), [
+            'angkot_id' => 'required',
+            'route_id' => 'required',
+            'is_beroperasi' => 'boolean',
+            'arah' => 'string',
+        ]);
+
+        $data = $request->all();
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $validator->errors()
+            ], 400);
+        }
+
+        if (isset($data['arah'])) {
+            $angkot_arah = $this->database->getReference('angkot/route_' . $request->input('route_id') . '/angkot_' . $request->input('angkot_id') . '/arah')->set(
+                $request->input('arah')
+            );
+        }
+
+        if (isset($data['is_beroperasi'])) {
+            $angkot_is_beroperasi = $this->database->getReference('angkot/route_' . $request->input('route_id') . '/angkot_' . $request->input('angkot_id') . '/is_beroperasi')->set(
+                $request->input('is_beroperasi')
+            );
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Arah dan status beroperasi berhasil di update'
+        ],200);
     }
 }
