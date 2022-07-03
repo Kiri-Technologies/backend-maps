@@ -323,9 +323,13 @@ class FirebaseController extends Controller
         // validate input
         $validator = Validator::make($request->all(), [
             'angkot_id' => 'required',
+            'route_id' => 'required',
             'is_beroperasi' => 'boolean',
             'arah' => 'string',
         ]);
+
+        $data = $request->all();
+
         if ($validator->fails()) {
             return response()->json([
                 'status' => 'error',
@@ -333,13 +337,13 @@ class FirebaseController extends Controller
             ], 400);
         }
 
-        if ($request->input('arah')) {
+        if (isset($data['arah'])) {
             $angkot_arah = $this->database->getReference('angkot/route_' . $request->input('route_id') . '/angkot_' . $request->input('angkot_id') . '/arah')->set(
                 $request->input('arah')
             );
         }
 
-        if ($request->input('is_beroperasi')) {
+        if (isset($data['is_beroperasi'])) {
             $angkot_is_beroperasi = $this->database->getReference('angkot/route_' . $request->input('route_id') . '/angkot_' . $request->input('angkot_id') . '/is_beroperasi')->set(
                 $request->input('is_beroperasi')
             );
