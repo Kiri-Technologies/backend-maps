@@ -73,7 +73,7 @@ class ToggleController extends Controller
                         
                         // update data is_waiting_passenger ke firebase sesuai id angkot
                         $this->database->getReference('angkot/' . 'route_' . $routeIdAngkot . '/angkot_' . $angkot_id . "/")->update([
-                            'is_waiting_passengers' => $is_waiting_for_passenger === '1' ? true : false,
+                            'is_waiting_passengers' => $is_waiting_for_passenger,
                         ]);
     
                         return response()->json([
@@ -117,7 +117,7 @@ class ToggleController extends Controller
         // ======================================================
         try {
             $this->database->getReference('angkot/' . 'route_' . $route_id . '/angkot_' . $angkot_id . "/")->update([
-                'is_full' => $is_full === '1' ? true : false,
+                'is_full' => $is_full,
             ]);
             return response()->json([
                 'status' => 'success',
