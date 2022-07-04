@@ -28,6 +28,23 @@ class ToggleController extends Controller
         // 1. supir kirim data angkot_id, is_waiting_for_passenger (boolean), lat, long
         // ==============================================================================================================================
 
+        // validasi request
+        $validator = \Validator::make($request->all(), [
+            'angkot_id' => 'required|integer',
+            'is_waiting_for_passengers' => 'required|boolean',
+            'lat' => 'required|numeric',
+            'long' => 'required|numeric',
+            'route_id' => 'required|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $validator->errors()
+            ], 400);
+        }
+
+
         $angkot_id = $request->angkot_id;
         $is_waiting_for_passenger = $request->is_waiting_for_passengers;
         $lat = $request->lat;
@@ -109,6 +126,21 @@ class ToggleController extends Controller
 
         // 1. supir kirim data angkot_id, is_full (boolean)
         // ======================================================
+
+        // validasi request
+        $validator = \Validator::make($request->all(), [
+            'angkot_id' => 'required|integer',
+            'is_full' => 'required|boolean',
+            'route_id' => 'required|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $validator->errors()
+            ], 400);
+        }
+
         $angkot_id = $request->angkot_id;
         $is_full = $request->is_full;
         $route_id = $request->route_id;
