@@ -110,13 +110,13 @@ class FirebaseController extends Controller
                     $angkot_didepan = $this->database->getReference('angkot/' . 'route_' . $route['id'] . "/" . "angkot_" . $angkot_list[$key - 1]['angkot_id'])->getValue();
                     // return response()->json($angkot_ini);
                     $jarakdidepan = ceil($this->getDistanceBetweenPoints($angkot_ini['lat'], $angkot_ini['long'], $angkot_didepan['lat'], $angkot_didepan['long'])['meters']);
-                    $waktu_tempuh = $jarakdidepan / 11;
+                    $waktu_tempuh = $jarakdidepan / 7;
                     // ubah waktu_tempuh menjadi detik
-                    $waktu_tempuh = round($waktu_tempuh / 60,2);                    
+                    $waktu_tempuh = ceil($waktu_tempuh / 60);                    
                     $this->database->getReference('jarak_antar_angkot/angkot_' . $id_angkot)->set([
                         'angkot_id' => $id_angkot,
                         'angkot_id_didepan' => $angkot_list[$key - 1]['angkot_id'],
-                        'jarak_antar_angkot_km' => $jarakdidepan,
+                        'jarak_antar_angkot_km' => $jarakdidepan/1000,
                         'jarak_antar_angkot_waktu' => $waktu_tempuh,
                     ]);
                     return response()->json([
