@@ -28,7 +28,7 @@ Route::group(['middleware' => ['token']], function () {
     Route::post('/scanqrcode', [FirebaseController::class, 'scanQRCode']);
     Route::post('/perjalananselesai', [FirebaseController::class, 'perjalananIsDone']);
     Route::post('/tarikangkot', [FirebaseController::class, 'setArahAndIsBeroperasi']);
-    Route::post("/setLocation", [FirebaseController::class, 'setLocation']);
+    Route::post("/setlocation", [FirebaseController::class, 'setLocation']);
 
     // button toggle
     Route::post('/togglestop', [ToggleController::class, 'toggleStop']);

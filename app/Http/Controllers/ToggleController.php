@@ -54,10 +54,6 @@ class ToggleController extends Controller
         try {
             // 2. get data halte virtual dari backend lumen yang arahnya sama kaya angkot
             // ==============================================================================================================================
-            // $routeIdAngkot = Http::withHeaders([
-            //     'Authorization' => 'Bearer '.env('TOKEN'),
-            //     ])->get(env('API_ENDPOINT') . 'angkot/1')->json()['data']['route_id'];
-
             $halteVirtual = Http::withToken(
                 $request->bearerToken()
             )->get(env('API_ENDPOINT') . 'haltevirtual?route_id='.$routeIdAngkot)->json()['data'];

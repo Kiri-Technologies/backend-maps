@@ -36,11 +36,15 @@ class FirebaseController extends Controller
         // 4. Urutkan data berdasarkan jarak
         // 5. Simpan data ke dalam array jarak_antar_angkot
 
-        $data = $request->all();
-        $id = $data['angkot_id'];
+        
+        $lat = floatval($request->lat);
+        $long = floatval($request->long);
+        $id_angkot = $request->angkot_id;
+
         $angkot = Http::withToken(
             $request->bearerToken()
-        )->get(env('API_ENDPOINT') . 'angkot/' . $id);
+        )->get(env('API_ENDPOINT') . 'angkot/' . $id_angkot);
+
         $angkot = json_decode($angkot->body(), true);
         $angkot = $angkot['data'];
         $route = $angkot['route'];
@@ -53,35 +57,35 @@ class FirebaseController extends Controller
         $radius = 0.0001 * 5;
 
         if (($lat_awal - $radius) < $request->lat && $request->lat < ($lat_awal + $radius) && ($long_awal - $radius) < $request->long && $request->long <  ($long_awal + $radius)) {
-            $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id . "/")->set([
-                'angkot_id' => $id,
+            $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . "/")->set([
+                'angkot_id' => $id_angkot,
                 'arah' => $route['titik_awal'],
                 "is_beroperasi" => true,
                 "is_full" => false,
                 "is_waiting_passengers" => false,
-                'lat' => floatval($data['lat']),
-                'long' => floatval($data['long']),
+                'lat' => $lat,
+                'long' => $long,
                 'owner_id' => $angkot['user_owner']['id'],
             ]);
         } elseif (($lat_akhir - $radius) < $request->lat && $request->lat < ($lat_akhir + $radius) && ($long_akhir - $radius) < $request->long && $request->long <  ($long_akhir + $radius)) {
-            $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id . "/")->set([
-                'angkot_id' => $id,
+            $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . "/")->set([
+                'angkot_id' => $id_angkot,
                 'arah' => $route['titik_akhir'],
                 "is_beroperasi" => true,
                 "is_full" => false,
                 "is_waiting_passengers" => false,
-                'lat' => floatval($data['lat']),
-                'long' => floatval($data['long']),
+                'lat' => $lat,
+                'long' => $long,
                 'owner_id' => $angkot['user_owner']['id'],
             ]);
         } else {
-            $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id . "/")->set([
-                'angkot_id' => $id,
+            $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . "/")->set([
+                'angkot_id' => $id_angkot,
                 "is_beroperasi" => true,
                 "is_full" => false,
                 "is_waiting_passengers" => false,
-                'lat' => floatval($data['lat']),
-                'long' => floatval($data['long']),
+                'lat' => $lat,
+                'long' => $long,
                 'owner_id' => $angkot['user_owner']['id'],
             ]);
         }
@@ -95,37 +99,40 @@ class FirebaseController extends Controller
             $angkot_list[$key]['jarak'] = $this->getDistanceBetweenPoints($angkot['lat'], $angkot['long'], $route['lat_titik_akhir'], $route['long_titik_awal'])['kilometers'];
         }
 
-
         usort($angkot_list, function ($a, $b) {
             return $a['jarak'] - $b['jarak'];
         });
 
         foreach ($angkot_list as $key => $angkot) {
-            if ($angkot_list[$key]['angkot_id'] == $id) {
+            if ($angkot_list[$key]['angkot_id'] == $id_angkot) {
                 if ($key != 0) {
                     $angkot_ini = $angkot_list[$key];
                     $angkot_didepan = $this->database->getReference('angkot/' . 'route_' . $route['id'] . "/" . "angkot_" . $angkot_list[$key - 1]['angkot_id'])->getValue();
                     // return response()->json($angkot_ini);
                     $jarakdidepan = ceil($this->getDistanceBetweenPoints($angkot_ini['lat'], $angkot_ini['long'], $angkot_didepan['lat'], $angkot_didepan['long'])['meters']);
-                    if ($jarakdidepan > 1000) {
-                        $jarakdidepan = ($jarakdidepan / 1000) . 'km';
-                    } else {
-                        $jarakdidepan = $jarakdidepan . 'm';
-                    }
-                    $waktuTempuh = $jarakdidepan / 40 * 60;
-                    return $jarakdidepan;
-                    $this->database->getReference('jarak_antar_angkot/angkot_' . $id)->set([
-                        'angkot_id' => $id,
+                    $waktu_tempuh = $jarakdidepan / 11;
+                    // ubah waktu_tempuh menjadi detik
+                    $waktu_tempuh = round($waktu_tempuh / 60,2);                    
+                    $this->database->getReference('jarak_antar_angkot/angkot_' . $id_angkot)->set([
+                        'angkot_id' => $id_angkot,
                         'angkot_id_didepan' => $angkot_list[$key - 1]['angkot_id'],
-                        'jarak_antar_angkot_km' => $jarakdidepan . " km",
-                        'jarak_antar_angkot_waktu' => $waktuTempuh . " min",
+                        'jarak_antar_angkot_km' => $jarakdidepan,
+                        'jarak_antar_angkot_waktu' => $waktu_tempuh,
+                    ]);
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Berhasil menambahkan data jarak antar angkot',
                     ]);
                 } else {
-                    $this->database->getReference('jarak_antar_angkot/angkot_' . $id)->set([
-                        'angkot_id' => $id,
-                        'angkot_id_didepan' => "null",
-                        'jarak_antar_angkot_km' => "null",
-                        'jarak_antar_angkot_waktu' => "null",
+                    $this->database->getReference('jarak_antar_angkot/angkot_' . $id_angkot)->set([
+                        'angkot_id' => $id_angkot,
+                        'angkot_id_didepan' => null,
+                        'jarak_antar_angkot_km' => 0,
+                        'jarak_antar_angkot_waktu' => 0,
+                    ]);
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Berhasil menambahkan data jarak antar angkot',
                     ]);
                 }
             }
