@@ -106,7 +106,7 @@ class ToggleController extends Controller
             return response()->json([
                 'status' => 'failed',
                 'message' => 'Gagal mengubah status is_waiting_passenger',
-            ]);
+            ], 400);
         }
 
         catch (\Exception $e) {
