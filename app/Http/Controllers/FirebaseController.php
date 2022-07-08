@@ -28,6 +28,133 @@ class FirebaseController extends Controller
         return response()->json($data);
     }
 
+    public function setLocation(Request $request)
+    {
+        // 1. Ambil data dari request 
+        // 2. Jika masuk ke radius salah satu titik rubah arah
+        // 3. Simpan data ke dalam array angkot
+        // 4. Urutkan data berdasarkan jarak
+        // 5. Simpan data ke dalam array jarak_antar_angkot
+
+        
+        $lat = floatval($request->lat);
+        $long = floatval($request->long);
+        $id_angkot = $request->angkot_id;
+
+        $angkot = Http::withToken(
+            $request->bearerToken()
+        )->get(env('API_ENDPOINT') . 'angkot/' . $id_angkot);
+
+        $angkot = json_decode($angkot->body(), true);
+        $angkot = $angkot['data'];
+        $route = $angkot['route'];
+
+        // memvalidasi apakah sudah berada didekat radius lat long awal / akhir
+        $lat_awal = $route['lat_titik_awal'];
+        $long_awal = $route['long_titik_awal'];
+        $lat_akhir = $route['lat_titik_akhir'];
+        $long_akhir = $route['long_titik_akhir'];
+        $radius = 0.0001 * 5;
+
+        if (($lat_awal - $radius) < $request->lat && $request->lat < ($lat_awal + $radius) && ($long_awal - $radius) < $request->long && $request->long <  ($long_awal + $radius)) {
+            $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . "/")->set([
+                'angkot_id' => $id_angkot,
+                'arah' => $route['titik_awal'],
+                "is_beroperasi" => true,
+                "is_full" => false,
+                "is_waiting_passengers" => false,
+                'lat' => $lat,
+                'long' => $long,
+                'owner_id' => $angkot['user_owner']['id'],
+            ]);
+        } elseif (($lat_akhir - $radius) < $request->lat && $request->lat < ($lat_akhir + $radius) && ($long_akhir - $radius) < $request->long && $request->long <  ($long_akhir + $radius)) {
+            $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . "/")->set([
+                'angkot_id' => $id_angkot,
+                'arah' => $route['titik_akhir'],
+                "is_beroperasi" => true,
+                "is_full" => false,
+                "is_waiting_passengers" => false,
+                'lat' => $lat,
+                'long' => $long,
+                'owner_id' => $angkot['user_owner']['id'],
+            ]);
+        } else {
+            $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . "/")->set([
+                'angkot_id' => $id_angkot,
+                "is_beroperasi" => true,
+                "is_full" => false,
+                "is_waiting_passengers" => false,
+                'lat' => $lat,
+                'long' => $long,
+                'owner_id' => $angkot['user_owner']['id'],
+            ]);
+        }
+
+        // mengurutkan data berdasarkan jarak terdekat
+        $angkot_list = $this->database->getReference('angkot/' . 'route_' . $route['id'])->getValue();
+
+        $angkot_list = array_values($angkot_list);
+
+        foreach ($angkot_list as $key => $angkot) {
+            $angkot_list[$key]['jarak'] = $this->getDistanceBetweenPoints($angkot['lat'], $angkot['long'], $route['lat_titik_akhir'], $route['long_titik_awal'])['kilometers'];
+        }
+
+        usort($angkot_list, function ($a, $b) {
+            return $a['jarak'] - $b['jarak'];
+        });
+
+        foreach ($angkot_list as $key => $angkot) {
+            if ($angkot_list[$key]['angkot_id'] == $id_angkot) {
+                if ($key != 0) {
+                    $angkot_ini = $angkot_list[$key];
+                    $angkot_didepan = $this->database->getReference('angkot/' . 'route_' . $route['id'] . "/" . "angkot_" . $angkot_list[$key - 1]['angkot_id'])->getValue();
+                    // return response()->json($angkot_ini);
+                    $jarakdidepan = ceil($this->getDistanceBetweenPoints($angkot_ini['lat'], $angkot_ini['long'], $angkot_didepan['lat'], $angkot_didepan['long'])['meters']);
+                    $waktu_tempuh = $jarakdidepan / 7;
+                    // ubah waktu_tempuh menjadi detik
+                    $waktu_tempuh = ceil($waktu_tempuh / 60);                    
+                    $this->database->getReference('jarak_antar_angkot/angkot_' . $id_angkot)->set([
+                        'angkot_id' => $id_angkot,
+                        'angkot_id_didepan' => $angkot_list[$key - 1]['angkot_id'],
+                        'jarak_antar_angkot_km' => $jarakdidepan/1000,
+                        'jarak_antar_angkot_waktu' => $waktu_tempuh,
+                    ]);
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Berhasil menambahkan data jarak antar angkot',
+                    ]);
+                } else {
+                    $this->database->getReference('jarak_antar_angkot/angkot_' . $id_angkot)->set([
+                        'angkot_id' => $id_angkot,
+                        'angkot_id_didepan' => null,
+                        'jarak_antar_angkot_km' => 0,
+                        'jarak_antar_angkot_waktu' => 0,
+                    ]);
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Berhasil menambahkan data jarak antar angkot',
+                    ]);
+                }
+            }
+        }
+    }
+
+    // fungsi mengukur jarak
+    private function getDistanceBetweenPoints($lat1, $lon1, $lat2, $lon2)
+    {
+        $theta = $lon1 - $lon2;
+        $miles = (sin(deg2rad($lat1)) * sin(deg2rad($lat2))) + (cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($theta)));
+        $miles = acos($miles);
+        $miles = rad2deg($miles);
+        $miles = $miles * 60 * 1.1515;
+        $feet = $miles * 5280;
+        $yards = $feet / 3;
+        $kilometers = $miles * 1.609344;
+        $meters = $kilometers * 1000;
+        return compact('miles', 'feet', 'yards', 'kilometers', 'meters');
+    }
+
+
     public function searchAngkot(Request $request)
     {
         // 1. Get data titik_naik from backend_lumen
@@ -38,12 +165,12 @@ class FirebaseController extends Controller
         // 4. Filter with radius: count lat and long
         // 5. Return data
 
-        $titik_naik = Http::withHeaders([
-            'Authorization' => env('TOKEN')
-        ])->get(env('API_ENDPOINT') . 'haltevirtual/' . $request->input('titik_naik_id'))->json()['data'];
-        $titik_turun = Http::withHeaders([
-            'Authorization' => env('TOKEN')
-        ])->get(env('API_ENDPOINT') . 'haltevirtual/' . $request->input('titik_turun_id'))->json()['data'];
+        $titik_naik = Http::withToken(
+            $request->bearerToken()
+        )->get(env('API_ENDPOINT') . 'haltevirtual/' . $request->input('titik_naik_id'))->json()['data'];
+        $titik_turun = Http::withToken(
+            $request->bearerToken()
+        )->get(env('API_ENDPOINT') . 'haltevirtual/' . $request->input('titik_turun_id'))->json()['data'];
         $angkot = $this->database->getReference('angkot/route_' . $request->input('route_id'))->getValue();  // this reference to firebase
         $angkot = (array) $angkot;
         $titik_naik['lat'] = (float)$titik_naik['lat'];
@@ -116,9 +243,9 @@ class FirebaseController extends Controller
             // The system measures the distance of an angkot that enters a small radius from the end of the route
             // The system chooses the angkot that is closest to the end of the route (buah batu) and is not full and is_operating = 1
             // get route_id from backend_lumen
-            $route = Http::withHeaders([
-                'Authorization' => env('TOKEN')
-            ])->get(env('API_ENDPOINT') . 'routes/' . $request->input('route_id'))->json()['data'];
+            $route = Http::withToken(
+                $request->bearerToken()
+            )->get(env('API_ENDPOINT') . 'routes/' . $request->input('route_id'))->json()['data'];
             $route['lat_titik_awal'] = (float)$route['lat_titik_awal'];
             $route['long_titik_awal'] = (float)$route['long_titik_awal'];
             $route['lat_titik_akhir'] = (float)$route['lat_titik_akhir'];
@@ -152,9 +279,9 @@ class FirebaseController extends Controller
             // The system measures the distance of an angkot that enters a small radius from the end of the route
             // The system chooses the angkot that is closest to the end of the route (buah batu) and is not full and is_operating = 1
             // get route_id from backend_lumen
-            $route = Http::withHeaders([
-                'Authorization' => env('TOKEN')
-            ])->get(env('API_ENDPOINT') . 'routes/' . $request->input('route_id'))->json()['data'];
+            $route = Http::withToken(
+                $request->bearerToken()
+            )->get(env('API_ENDPOINT') . 'routes/' . $request->input('route_id'))->json()['data'];
             // bandingkan arah titik_naik dengan titik_awal route_id (string)
             // jika tidak sama maka bandingkan dengan titik_akhir
             if ($route['titik_awal'] == $titik_naik['arah']) {
@@ -185,15 +312,15 @@ class FirebaseController extends Controller
             ], 404);
         }
 
-        $angkot_supir = Http::withHeaders([
-            'Authorization' => env('TOKEN')
-        ])->get(env('API_ENDPOINT') . 'angkot/' . $angkot_is_find)->json()['data'];
+        $angkot_supir = Http::withToken(
+            $request->bearerToken()
+        )->get(env('API_ENDPOINT') . 'angkot/' . $angkot_is_find)->json()['data'];
 
         $jarak = round($this->setTwoPoints($titik_naik['lat'], $titik_naik['long'], $titik_turun['lat'], $titik_turun['long']), 1);
         $price = $this->priceRecomendation($jarak);
-        $dataPerjalanan = Http::withHeaders([
-            'Authorization' => env('TOKEN')
-        ])->post(env('API_ENDPOINT') . 'perjalanan/create', [
+        $dataPerjalanan = Http::withToken(
+            $request->bearerToken()
+        )->post(env('API_ENDPOINT') . 'perjalanan/create', [
             'penumpang_id' => $request->input('user_id'),
             'angkot_id' => "$angkot_is_find",
             'history_id' => '1',
