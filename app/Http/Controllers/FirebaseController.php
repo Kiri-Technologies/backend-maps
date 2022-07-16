@@ -336,7 +336,6 @@ class FirebaseController extends Controller
             'is_connected_with_driver' => false,
         ])->json()['data'];
 
-
         // push data penumpang ke firebase
         $data_penumpang = $this->database->getReference('penumpang_naik_turun/angkot_' . $angkot_is_find . '/naik/perjalanan_' . $dataPerjalanan['id'])->set([
             'angkot_id' => $angkot_is_find,
