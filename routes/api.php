@@ -45,8 +45,8 @@ Route::group(['middleware' => ['token']], function () {
 
     // Admin Create Halte Virtual
     Route::post('/admin/haltevirtual/create', [SetpointController::class, 'createSetpoint']);
-    Route::post('/admin/haltevirtual/{{id}}/update', [SetpointController::class, 'updateSetpoint']);
-    Route::delete('/admin/haltevirtual/{{id}}/delete', [SetpointController::class, 'deleteSetpoint']);
+    Route::post('/admin/haltevirtual/{id}/update', [SetpointController::class, 'updateSetpoint']);
+    Route::delete('/admin/haltevirtual/{id}/delete', [SetpointController::class, 'deleteSetpoint']);
 });
 
 route::get('/cobainfirebase', [FirebaseController::class, 'index']);

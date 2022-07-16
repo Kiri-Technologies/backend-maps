@@ -152,6 +152,18 @@ class AngkotController extends Controller
                 if ($angkot_lumen['status'] != 'success') {
                     return response()->json(['error' => 'Failed to update angkot'], 400);
                 }
+
+                // also put the data into firebase
+                $angkot = $this->database->getReference('angkot/route_' . $angkot_lumen['data']['route_id'] . '/angkot_' . $angkot_lumen['data']['id'])->set([
+                    'angkot_id' => $angkot_lumen['data']['id'],
+                    'is_beroperasi' => $request->input('is_beroperasi'),
+                    'is_full' => $request->input('is_full'),
+                    'is_waiting_passengers' => $request->input('is_waiting_passengers'),
+                    'lat' => $request->input('lat'),
+                    'long' => $request->input('long'),
+                    'owner_id' => $request->input('owner_id'),
+                ]);
+                
             } catch (\Exception $e) {
                 //return error message
                 return response()->json([
