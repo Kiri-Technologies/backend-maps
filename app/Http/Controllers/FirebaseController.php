@@ -36,18 +36,42 @@ class FirebaseController extends Controller
         // 4. Urutkan data berdasarkan jarak
         // 5. Simpan data ke dalam array jarak_antar_angkot
 
-        
+        // Validation
+        $validator = Validator::make($request->all(), [
+            'angkot_id' => 'required',
+            'lat' => "required",
+            'long' => "required",
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'failed',
+                'message' => $validator->error(),
+                'data' => []
+            ], 400);
+        }
+
+
         $lat = floatval($request->lat);
         $long = floatval($request->long);
         $id_angkot = $request->angkot_id;
 
-        $angkot = Http::withToken(
-            $request->bearerToken()
-        )->get(env('API_ENDPOINT') . 'angkot/' . $id_angkot);
+        try {
+            $angkot = Http::withToken(
+                $request->bearerToken()
+            )->get(env('API_ENDPOINT') . 'angkot/' . $id_angkot);
 
-        $angkot = json_decode($angkot->body(), true);
-        $angkot = $angkot['data'];
-        $route = $angkot['route'];
+            $angkot = json_decode($angkot->body(), true);
+            $angkot = $angkot['data'];
+            $route = $angkot['route'];
+        } catch (\Exception $e) {
+            //return error message
+            return response()->json([
+                'status' => 'failed',
+                'message' => 'Angkot tidak ditemukan',
+                'data' => [],
+            ], 404);
+        }
 
         // memvalidasi apakah sudah berada didekat radius lat long awal / akhir
         $lat_awal = $route['lat_titik_awal'];
@@ -56,42 +80,64 @@ class FirebaseController extends Controller
         $long_akhir = $route['long_titik_akhir'];
         $radius = 0.0001 * 5;
 
-        if (($lat_awal - $radius) < $request->lat && $request->lat < ($lat_awal + $radius) && ($long_awal - $radius) < $request->long && $request->long <  ($long_awal + $radius)) {
-            $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . "/")->set([
-                'angkot_id' => $id_angkot,
-                'arah' => $route['titik_awal'],
-                "is_beroperasi" => true,
-                "is_full" => false,
-                "is_waiting_passengers" => false,
-                'lat' => $lat,
-                'long' => $long,
-                'owner_id' => $angkot['user_owner']['id'],
-            ]);
-        } elseif (($lat_akhir - $radius) < $request->lat && $request->lat < ($lat_akhir + $radius) && ($long_akhir - $radius) < $request->long && $request->long <  ($long_akhir + $radius)) {
-            $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . "/")->set([
-                'angkot_id' => $id_angkot,
-                'arah' => $route['titik_akhir'],
-                "is_beroperasi" => true,
-                "is_full" => false,
-                "is_waiting_passengers" => false,
-                'lat' => $lat,
-                'long' => $long,
-                'owner_id' => $angkot['user_owner']['id'],
-            ]);
-        } else {
-            $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . "/")->set([
-                'angkot_id' => $id_angkot,
-                "is_beroperasi" => true,
-                "is_full" => false,
-                "is_waiting_passengers" => false,
-                'lat' => $lat,
-                'long' => $long,
-                'owner_id' => $angkot['user_owner']['id'],
-            ]);
+        try {
+            if (($lat_awal - $radius) < $request->lat && $request->lat < ($lat_awal + $radius) && ($long_awal - $radius) < $request->long && $request->long <  ($long_awal + $radius)) {
+                $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . "/")->set([
+                    'angkot_id' => $id_angkot,
+                    'arah' => $route['titik_awal'],
+                    "is_beroperasi" => true,
+                    "is_full" => false,
+                    "is_waiting_passengers" => false,
+                    'lat' => $lat,
+                    'long' => $long,
+                    'owner_id' => $angkot['user_owner']['id'],
+                ]);
+            } elseif (($lat_akhir - $radius) < $request->lat && $request->lat < ($lat_akhir + $radius) && ($long_akhir - $radius) < $request->long && $request->long <  ($long_akhir + $radius)) {
+                $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . "/")->set([
+                    'angkot_id' => $id_angkot,
+                    'arah' => $route['titik_akhir'],
+                    "is_beroperasi" => true,
+                    "is_full" => false,
+                    "is_waiting_passengers" => false,
+                    'lat' => $lat,
+                    'long' => $long,
+                    'owner_id' => $angkot['user_owner']['id'],
+                ]);
+            } else {
+                $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . "/")->set([
+                    'angkot_id' => $id_angkot,
+                    "is_beroperasi" => true,
+                    "is_full" => false,
+                    "is_waiting_passengers" => false,
+                    'lat' => $lat,
+                    'long' => $long,
+                    'owner_id' => $angkot['user_owner']['id'],
+                ]);
+            }
+        } catch (\Exception $e) {
+            //return error message
+            $arr = (array) $e;
+            return response()->json([
+                'status' => 'failed',
+                'message' => !$arr ? 'Failed to insert data to firebase' : $arr,
+                'data' => [],
+            ], 400);
         }
 
-        // mengurutkan data berdasarkan jarak terdekat
-        $angkot_list = $this->database->getReference('angkot/' . 'route_' . $route['id'])->getValue();
+
+        try {
+            // mengurutkan data berdasarkan jarak terdekat
+            $angkot_list = $this->database->getReference('angkot/' . 'route_' . $route['id'])->getValue();
+        } catch (\Exception $e) {
+            //return error message
+            $arr = (array) $e;
+            return response()->json([
+                'status' => 'failed',
+                'message' => !$arr ? 'Failed to get data from firebase' : $arr,
+                'data' => [],
+            ], 400);
+        }
+
 
         $angkot_list = array_values($angkot_list);
 
@@ -107,33 +153,70 @@ class FirebaseController extends Controller
             if ($angkot_list[$key]['angkot_id'] == $id_angkot) {
                 if ($key != 0) {
                     $angkot_ini = $angkot_list[$key];
-                    $angkot_didepan = $this->database->getReference('angkot/' . 'route_' . $route['id'] . "/" . "angkot_" . $angkot_list[$key - 1]['angkot_id'])->getValue();
+
+
+                    try {
+                        $angkot_didepan = $this->database->getReference('angkot/' . 'route_' . $route['id'] . "/" . "angkot_" . $angkot_list[$key - 1]['angkot_id'])->getValue();
+                    } catch (\Exception $e) {
+                        //return error message
+                        $arr = (array) $e;
+                        return response()->json([
+                            'status' => 'failed',
+                            'message' => !$arr ? 'Failed to get data from firebase' : $arr,
+                            'data' => [],
+                        ], 400);
+                    }
+
+
                     // return response()->json($angkot_ini);
                     $jarakdidepan = ceil($this->getDistanceBetweenPoints($angkot_ini['lat'], $angkot_ini['long'], $angkot_didepan['lat'], $angkot_didepan['long'])['meters']);
                     $waktu_tempuh = $jarakdidepan / 7;
                     // ubah waktu_tempuh menjadi detik
-                    $waktu_tempuh = ceil($waktu_tempuh / 60);                    
-                    $this->database->getReference('jarak_antar_angkot/angkot_' . $id_angkot)->set([
-                        'angkot_id' => $id_angkot,
-                        'angkot_id_didepan' => $angkot_list[$key - 1]['angkot_id'],
-                        'jarak_antar_angkot_km' => $jarakdidepan/1000,
-                        'jarak_antar_angkot_waktu' => $waktu_tempuh,
-                    ]);
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Berhasil menambahkan data jarak antar angkot',
-                    ]);
+                    $waktu_tempuh = ceil($waktu_tempuh / 60);
+
+                    try {
+                        $this->database->getReference('jarak_antar_angkot/angkot_' . $id_angkot)->set([
+                            'angkot_id' => $id_angkot,
+                            'angkot_id_didepan' => $angkot_list[$key - 1]['angkot_id'],
+                            'jarak_antar_angkot_km' => $jarakdidepan / 1000,
+                            'jarak_antar_angkot_waktu' => $waktu_tempuh,
+                        ]);
+
+                        return response()->json([
+                            'status' => 'success',
+                            'message' => 'Berhasil menambahkan data jarak antar angkot',
+                        ], 200);
+                    } catch (\Exception $e) {
+                        //return error message
+                        $arr = (array) $e;
+                        return response()->json([
+                            'status' => 'failed',
+                            'message' => !$arr ? 'Failed to insert data to firebase' : $arr,
+                            'data' => [],
+                        ], 400);
+                    }
                 } else {
-                    $this->database->getReference('jarak_antar_angkot/angkot_' . $id_angkot)->set([
-                        'angkot_id' => $id_angkot,
-                        'angkot_id_didepan' => null,
-                        'jarak_antar_angkot_km' => 0,
-                        'jarak_antar_angkot_waktu' => 0,
-                    ]);
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Berhasil menambahkan data jarak antar angkot',
-                    ]);
+                    try {
+                        $this->database->getReference('jarak_antar_angkot/angkot_' . $id_angkot)->set([
+                            'angkot_id' => $id_angkot,
+                            'angkot_id_didepan' => null,
+                            'jarak_antar_angkot_km' => 0,
+                            'jarak_antar_angkot_waktu' => 0,
+                        ]);
+
+                        return response()->json([
+                            'status' => 'success',
+                            'message' => 'Berhasil menambahkan data jarak antar angkot',
+                        ], 200);
+                    } catch (\Exception $e) {
+                        //return error message
+                        $arr = (array) $e;
+                        return response()->json([
+                            'status' => 'failed',
+                            'message' => !$arr ? 'Failed to insert data to firebase' : $arr,
+                            'data' => [],
+                        ], 400);
+                    }
                 }
             }
         }
@@ -165,13 +248,29 @@ class FirebaseController extends Controller
         // 4. Filter with radius: count lat and long
         // 5. Return data
 
-        $titik_naik = Http::withToken(
-            $request->bearerToken()
-        )->get(env('API_ENDPOINT') . 'haltevirtual/' . $request->input('titik_naik_id'))->json()['data'];
-        $titik_turun = Http::withToken(
-            $request->bearerToken()
-        )->get(env('API_ENDPOINT') . 'haltevirtual/' . $request->input('titik_turun_id'))->json()['data'];
-        $angkot = $this->database->getReference('angkot/route_' . $request->input('route_id'))->getValue();  // this reference to firebase
+        try {
+            // Get titik naik from backend lumen
+            $titik_naik = Http::withToken(
+                $request->bearerToken()
+            )->get(env('API_ENDPOINT') . 'haltevirtual/' . $request->input('titik_naik_id'))->json()['data'];
+
+            // Get titik turun from backend lumen
+            $titik_turun = Http::withToken(
+                $request->bearerToken()
+            )->get(env('API_ENDPOINT') . 'haltevirtual/' . $request->input('titik_turun_id'))->json()['data'];
+
+            // Get angkot data from firebase
+            $angkot = $this->database->getReference('angkot/route_' . $request->input('route_id'))->getValue();
+        } catch (\Exception $e) {
+            //return error message
+            $arr = (array) $e;
+            return response()->json([
+                'status' => 'failed',
+                'message' => !$arr ? 'Failed to get data from database' : $arr,
+                'data' => [],
+            ], 400);
+        }
+        // this reference to firebase
         $angkot = (array) $angkot;
         $titik_naik['lat'] = (float)$titik_naik['lat'];
         $titik_naik['long'] = (float)$titik_naik['long'];
@@ -231,7 +330,18 @@ class FirebaseController extends Controller
             // The system selects the angkot that presses the timestampt (priority) button and is not full and is_operating = 1
             // select the first angkot that press button is_waiting_passengers
             // get firebase/setpoints/prioritas
-            $prioritas = $this->database->getReference('setpoints/setpoint_' . $request->input('titik_naik_id') . '/prioritas')->getValue();
+            try {
+                $prioritas = $this->database->getReference('setpoints/setpoint_' . $request->input('titik_naik_id') . '/prioritas')->getValue();
+            } catch (\Exception $e) {
+                //return error message
+                $arr = (array) $e;
+                return response()->json([
+                    'status' => 'failed',
+                    'message' => !$arr ? 'Failed to get data from firebase' : $arr,
+                    'data' => [],
+                ], 400);
+            }
+
             // convert data to array
             $prioritas = json_decode(json_encode($prioritas), true);
             // sort prioritas based on timestamp
@@ -243,9 +353,20 @@ class FirebaseController extends Controller
             // The system measures the distance of an angkot that enters a small radius from the end of the route
             // The system chooses the angkot that is closest to the end of the route (buah batu) and is not full and is_operating = 1
             // get route_id from backend_lumen
-            $route = Http::withToken(
-                $request->bearerToken()
-            )->get(env('API_ENDPOINT') . 'routes/' . $request->input('route_id'))->json()['data'];
+            try {
+                $route = Http::withToken(
+                    $request->bearerToken()
+                )->get(env('API_ENDPOINT') . 'routes/' . $request->input('route_id'))->json()['data'];
+            } catch (\Exception $e) {
+                //return error message
+                $arr = (array) $e;
+                return response()->json([
+                    'status' => 'failed',
+                    'message' => !$arr ? 'Failed to get data from database' : $arr,
+                    'data' => [],
+                ], 400);
+            }
+
             $route['lat_titik_awal'] = (float)$route['lat_titik_awal'];
             $route['long_titik_awal'] = (float)$route['long_titik_awal'];
             $route['lat_titik_akhir'] = (float)$route['lat_titik_akhir'];
@@ -279,9 +400,19 @@ class FirebaseController extends Controller
             // The system measures the distance of an angkot that enters a small radius from the end of the route
             // The system chooses the angkot that is closest to the end of the route (buah batu) and is not full and is_operating = 1
             // get route_id from backend_lumen
-            $route = Http::withToken(
-                $request->bearerToken()
-            )->get(env('API_ENDPOINT') . 'routes/' . $request->input('route_id'))->json()['data'];
+            try {
+                $route = Http::withToken(
+                    $request->bearerToken()
+                )->get(env('API_ENDPOINT') . 'routes/' . $request->input('route_id'))->json()['data'];
+            } catch (\Exception $e) {
+                //return error message
+                $arr = (array) $e;
+                return response()->json([
+                    'status' => 'failed',
+                    'message' => !$arr ? 'Failed to get data from database' : $arr,
+                    'data' => [],
+                ], 400);
+            }
             // bandingkan arah titik_naik dengan titik_awal route_id (string)
             // jika tidak sama maka bandingkan dengan titik_akhir
             if ($route['titik_awal'] == $titik_naik['arah']) {
@@ -312,40 +443,62 @@ class FirebaseController extends Controller
             ], 404);
         }
 
-        $angkot_supir = Http::withToken(
-            $request->bearerToken()
-        )->get(env('API_ENDPOINT') . 'angkot/' . $angkot_is_find)->json()['data'];
+        try {
+            $angkot_supir = Http::withToken(
+                $request->bearerToken()
+            )->get(env('API_ENDPOINT') . 'angkot/' . $angkot_is_find)->json()['data'];
+        } catch (\Exception $e) {
+            //return error message
+            $arr = (array) $e;
+            return response()->json([
+                'status' => 'failed',
+                'message' => !$arr ? 'Failed to get data from database' : $arr,
+                'data' => [],
+            ], 400);
+        }
 
         $jarak = round($this->setTwoPoints($titik_naik['lat'], $titik_naik['long'], $titik_turun['lat'], $titik_turun['long']), 1);
         $price = $this->priceRecomendation($jarak);
-        $dataPerjalanan = Http::withToken(
-            $request->bearerToken()
-        )->post(env('API_ENDPOINT') . 'perjalanan/create', [
-            'penumpang_id' => $request->input('user_id'),
-            'angkot_id' => "$angkot_is_find",
-            'history_id' => '1',
-            'tempat_naik_id' => $request->input('titik_naik_id'),
-            'tempat_turun_id' => $request->input('titik_turun_id'),
-            // 'supir_id' => $angkot_supir['supir_id'],
-            'supir_id' => 'supir-123456',
-            'nama_tempat_naik' => $titik_naik['nama_lokasi'],
-            'nama_tempat_turun' => $titik_turun['nama_lokasi'],
-            'jarak' => "$jarak Km",
-            'rekomendasi_harga' => "$price",
-            'is_done' => false,
-            'is_connected_with_driver' => false,
-        ])->json()['data'];
 
-        // push data penumpang ke firebase
-        $data_penumpang = $this->database->getReference('penumpang_naik_turun/angkot_' . $angkot_is_find . '/naik/perjalanan_' . $dataPerjalanan['id'])->set([
-            'angkot_id' => $angkot_is_find,
-            'id_perjalanan' => $dataPerjalanan['id'],
-            'id_titik_naik' => $titik_naik['id'],
-            'id_titik_turun' => $titik_turun['id'],
-            'id_user' => $request->input('user_id'),
-            'titik_naik' => $titik_naik['nama_lokasi'],
-            'titik_turun' => $titik_turun['nama_lokasi'],
-        ]);
+        try {
+            $dataPerjalanan = Http::withToken(
+                $request->bearerToken()
+            )->post(env('API_ENDPOINT') . 'perjalanan/create', [
+                'penumpang_id' => $request->input('user_id'),
+                'angkot_id' => "$angkot_is_find",
+                'tempat_naik_id' => $request->input('titik_naik_id'),
+                'tempat_turun_id' => $request->input('titik_turun_id'),
+                // 'supir_id' => $angkot_supir['supir_id'],
+                'supir_id' => $angkot_supir['supir_id'] == null ? 'supir-123456' : $angkot_supir['supir_id'],
+                'nama_tempat_naik' => $titik_naik['nama_lokasi'],
+                'nama_tempat_turun' => $titik_turun['nama_lokasi'],
+                'jarak' => "$jarak Km",
+                'rekomendasi_harga' => "$price",
+                'is_done' => false,
+                'is_connected_with_driver' => false,
+            ])->json()['data'];
+
+            
+            // push data penumpang ke firebase
+            $data_penumpang = $this->database->getReference('penumpang_naik_turun/angkot_' . $angkot_is_find . '/naik/perjalanan_' . $dataPerjalanan['id'])->set([
+                'angkot_id' => $angkot_is_find,
+                'id_perjalanan' => $dataPerjalanan['id'],
+                'id_titik_naik' => $titik_naik['id'],
+                'id_titik_turun' => $titik_turun['id'],
+                'id_user' => $request->input('user_id'),
+                'titik_naik' => $titik_naik['nama_lokasi'],
+                'titik_turun' => $titik_turun['nama_lokasi'],
+            ]);
+        } catch (\Exception $e) {
+            //return error message
+            $arr = (array) $e;
+            return response()->json([
+                'status' => 'failed',
+                'message' => !$arr ? 'Failed to insert data to database' : $arr,
+                'data' => [],
+            ], 400);
+        }
+
 
         // check data penumpang berhasil di push ke firebase
         if ($data_penumpang) {
@@ -413,18 +566,44 @@ class FirebaseController extends Controller
         // - delete data perjalanan di data calon penumpang naik sesuai id angkot
         // - insert data perjalanan di data penumpang turun sesuai id angkot
 
-        $get_perjalanan = $this->database->getReference('penumpang_naik_turun/angkot_' . $request->input('angkot_id') . '/naik/perjalanan_' . $request->input('perjalanan_id'))->getSnapshot()->getValue();
-        $set_penumpang = $this->database->getReference('penumpang_naik_turun/angkot_' . $request->input('angkot_id') . '/turun/perjalanan_' . $request->input('perjalanan_id'))->set(
-            $get_perjalanan
-        );
-        // delete data perjalanan
-        $delete_perjalanan = $this->database->getReference('penumpang_naik_turun/angkot_' . $request->input('angkot_id') . '/naik/perjalanan_' . $request->input('perjalanan_id'))->remove();
-        $update_data_perjalanan = Http::withHeaders([
-            'Authorization' => env('TOKEN')
-        ])->post(env('API_ENDPOINT') . 'perjalanan/' . $request->input('perjalanan_id') . '/update', [
-            'is_done' => false,
-            'is_connected_with_driver' => true,
-        ])->json()['data'];
+        // Validation
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required',
+            'perjalanan_id' => "required",
+            'angkot_id' => "required",
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'failed',
+                'message' => $validator->error(),
+                'data' => []
+            ], 400);
+        }
+
+
+        try {
+            $get_perjalanan = $this->database->getReference('penumpang_naik_turun/angkot_' . $request->input('angkot_id') . '/naik/perjalanan_' . $request->input('perjalanan_id'))->getSnapshot()->getValue();
+            $set_penumpang = $this->database->getReference('penumpang_naik_turun/angkot_' . $request->input('angkot_id') . '/turun/perjalanan_' . $request->input('perjalanan_id'))->set(
+                $get_perjalanan
+            );
+            // delete data perjalanan
+            $delete_perjalanan = $this->database->getReference('penumpang_naik_turun/angkot_' . $request->input('angkot_id') . '/naik/perjalanan_' . $request->input('perjalanan_id'))->remove();
+            $update_data_perjalanan = Http::withHeaders([
+                'Authorization' => env('TOKEN')
+            ])->post(env('API_ENDPOINT') . 'perjalanan/' . $request->input('perjalanan_id') . '/update', [
+                'is_done' => false,
+                'is_connected_with_driver' => true,
+            ])->json()['data'];
+        } catch (\Exception $e) {
+            //return error message
+            $arr = (array) $e;
+            return response()->json([
+                'status' => 'failed',
+                'message' => !$arr ? 'Failed to get data from database' : $arr,
+                'data' => [],
+            ], 400);
+        }
 
         return response()->json([
             'status' => 'success',
@@ -433,19 +612,46 @@ class FirebaseController extends Controller
         ], 200);
     }
 
-    public function perjalananIsDone(Request $request) {
+    public function perjalananIsDone(Request $request)
+    {
         // Remove perjalanan from perjalanan_naik_turun on angkot{id}/turun
 
-        $get_perjalanan = $this->database->getReference('penumpang_naik_turun/angkot_' . $request->input('angkot_id') . '/turun/perjalanan_' . $request->input('perjalanan_id'))->remove();
-        
+        // Validation
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required',
+            'perjalanan_id' => "required",
+            'angkot_id' => "required",
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'failed',
+                'message' => $validator->error(),
+                'data' => []
+            ], 400);
+        }
+
+        try {
+            $get_perjalanan = $this->database->getReference('penumpang_naik_turun/angkot_' . $request->input('angkot_id') . '/turun/perjalanan_' . $request->input('perjalanan_id'))->remove();
+        } catch (\Exception $e) {
+            //return error message
+            $arr = (array) $e;
+            return response()->json([
+                'status' => 'failed',
+                'message' => !$arr ? 'Failed to get data from database' : $arr,
+                'data' => [],
+            ], 400);
+        }
+
         return response()->json([
             'status' => 'success',
             'message' => 'perjalanan selesai'
-        ],200);
+        ], 200);
     }
 
-    public function setArahAndIsBeroperasi(Request $request) {
-        
+    public function setArahAndIsBeroperasi(Request $request)
+    {
+
         // validate input
         $validator = Validator::make($request->all(), [
             'angkot_id' => 'required',
@@ -464,20 +670,40 @@ class FirebaseController extends Controller
         }
 
         if (isset($data['arah'])) {
-            $angkot_arah = $this->database->getReference('angkot/route_' . $request->input('route_id') . '/angkot_' . $request->input('angkot_id') . '/arah')->set(
-                $request->input('arah')
-            );
+            try {
+                $angkot_arah = $this->database->getReference('angkot/route_' . $request->input('route_id') . '/angkot_' . $request->input('angkot_id') . '/arah')->set(
+                    $request->input('arah')
+                );
+            } catch (\Exception $e) {
+                //return error message
+                $arr = (array) $e;
+                return response()->json([
+                    'status' => 'failed',
+                    'message' => !$arr ? 'Failed to insert data to database' : $arr,
+                    'data' => [],
+                ], 400);
+            }
         }
 
         if (isset($data['is_beroperasi'])) {
-            $angkot_is_beroperasi = $this->database->getReference('angkot/route_' . $request->input('route_id') . '/angkot_' . $request->input('angkot_id') . '/is_beroperasi')->set(
-                $request->input('is_beroperasi')
-            );
+            try {
+                $angkot_is_beroperasi = $this->database->getReference('angkot/route_' . $request->input('route_id') . '/angkot_' . $request->input('angkot_id') . '/is_beroperasi')->set(
+                    $request->input('is_beroperasi')
+                );
+            } catch (\Exception $e) {
+                //return error message
+                $arr = (array) $e;
+                return response()->json([
+                    'status' => 'failed',
+                    'message' => !$arr ? 'Failed to insert data to database' : $arr,
+                    'data' => [],
+                ], 400);
+            }
         }
 
         return response()->json([
             'status' => 'success',
             'message' => 'Arah dan status beroperasi berhasil di update'
-        ],200);
+        ], 200);
     }
 }
