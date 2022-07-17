@@ -17,6 +17,23 @@ class SetpointController extends Controller
 
     public function createSetpoint(Request $request)
     {
+        //validate incoming request
+        $validator = Validator::make($request->all(), [
+            'route_id' => 'required',
+            'nama_lokasi' => 'required|string',
+            'lat' => 'required',
+            'long' => 'required',
+            'arah' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            //return failed response
+            return response()->json([
+                'status' => 'failed',
+                'message' => $validator->errors(),
+                'data' => [],
+            ], 400);
+        }
 
         // post halte virtual
         $halte_virtual = Http::withToken(
@@ -39,16 +56,24 @@ class SetpointController extends Controller
             ], 400);
         }
 
-        // // push data to firebase
-        $setpoints = $this->database->getReference('setpoints/setpoint_' . $halte_virtual['data']['id'])->set([
-            'arah' => $halte_virtual['data']['arah'],
-            'lat' => $halte_virtual['data']['lat'],
-            'long' => $halte_virtual['data']['long'],
-            'nama_lokasi' => $halte_virtual['data']['nama_lokasi'],
-            'route_id' => $halte_virtual['data']['route_id'],
-            'setpoint_id' => $halte_virtual['data']['id'],
-
-        ]);
+        // push data to firebase
+        try {
+            $setpoints = $this->database->getReference('setpoints/setpoint_' . $halte_virtual['data']['id'])->set([
+                'arah' => $halte_virtual['data']['arah'],
+                'lat' => (float) $halte_virtual['data']['lat'],
+                'long' => (float) $halte_virtual['data']['long'],
+                'nama_lokasi' => $halte_virtual['data']['nama_lokasi'],
+                'route_id' => $halte_virtual['data']['route_id'],
+                'setpoint_id' => $halte_virtual['data']['id'],
+            ]);
+        } catch (\Exception $e) {
+            //return error message
+            return response()->json([
+                'status' => 'failed',
+                'message' => $e,
+                'data' => [],
+            ], 409);
+        }
 
         // return success response
         return response()->json([
@@ -60,6 +85,24 @@ class SetpointController extends Controller
 
     public function updateSetpoint(Request $request, $id)
     {
+        //validate incoming request
+        $validator = Validator::make($request->all(), [
+            'route_id' => 'required',
+            'nama_lokasi' => 'required|string',
+            'lat' => 'required',
+            'long' => 'required',
+            'arah' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            //return failed response
+            return response()->json([
+                'status' => 'failed',
+                'message' => $validator->errors(),
+                'data' => [],
+            ], 400);
+        }
+
         $halte_virtual = Http::withToken(
             $request->bearerToken()
         )->post(env('API_ENDPOINT') . 'admin/haltevirtual/' . $id . '/update', [
@@ -81,15 +124,24 @@ class SetpointController extends Controller
             ], 400);
         }
 
-        // update to firebase
-        $setpoints = $this->database->getReference('setpoints/setpoint_' . $halte_virtual['data']['id'])->set([
-            'arah' => $request->input('arah'),
-            'lat' => $request->input('lat'),
-            'long' => $request->input('long'),
-            'nama_lokasi' => $request->input('nama_lokasi'),
-            'route_id' => $request->input('route_id'),
-            'setpoint_id' => $halte_virtual['data']['id'],
-        ]);
+        try {
+            // update to firebase
+            $setpoints = $this->database->getReference('setpoints/setpoint_' . $halte_virtual['data']['id'])->set([
+                'arah' => $request->input('arah'),
+                'lat' => (float) $request->input('lat'),
+                'long' => (float) $request->input('long'),
+                'nama_lokasi' => $request->input('nama_lokasi'),
+                'route_id' => $request->input('route_id'),
+                'setpoint_id' => $halte_virtual['data']['id'],
+            ]);
+        } catch (\Exception $e) {
+            //return error message
+            return response()->json([
+                'status' => 'failed',
+                'message' => $e,
+                'data' => [],
+            ], 409);
+        }
 
         // return success response
         return response()->json([
@@ -120,7 +172,7 @@ class SetpointController extends Controller
         $halte_virtual = Http::withToken(
             $request->bearerToken()
         )->delete(env('API_ENDPOINT') . 'admin/haltevirtual/' . $id . '/delete',)->json();
-        
+
         // check if failed hit api from another backend services
         if ($halte_virtual['status'] == 'failed') {
             // return failed response
@@ -131,8 +183,17 @@ class SetpointController extends Controller
             ], 400);
         }
 
-        // delete from firebase
-        $setpoints = $this->database->getReference('setpoints/setpoint_' . $get_halte_virtual['data']['id'])->remove();
+        try {
+            // delete from firebase
+            $setpoints = $this->database->getReference('setpoints/setpoint_' . $get_halte_virtual['data']['id'])->remove();
+        } catch (\Exception $e) {
+            //return error message
+            return response()->json([
+                'status' => 'failed',
+                'message' => $e,
+                'data' => [],
+            ], 409);
+        }
 
         // return success response
         return response()->json([
