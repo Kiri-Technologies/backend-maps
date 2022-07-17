@@ -425,6 +425,15 @@ class FirebaseController extends Controller
                     return $a['distance'] < $b['distance'];
                 });
                 $angkot_is_find = $angkot_radius_besar[0]['angkot_id'];
+
+                $jarak_halte_virtual_ke_titik_naik = sqrt(pow(($titik_naik['long'] - $route['long_titik_awal']), 2) + pow(($titik_naik['lat'] - $route['lat_titik_awal']), 2));
+
+                if ($jarak_halte_virtual_ke_titik_naik > $angkot_radius_besar[0]['distance']) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Angkot tidak ditemukan'
+                    ], 404);
+                }
             } else {
                 // ukur jarak lat titik_akhir dan long titik_akhir ke lat dan long angkot
                 foreach ($angkot_radius_besar as $index => $angkot) {
@@ -435,7 +444,18 @@ class FirebaseController extends Controller
                     return $a['distance'] < $b['distance'];
                 });
                 $angkot_is_find = $angkot_radius_besar[0]['angkot_id'];
+
+                $jarak_halte_virtual_ke_titik_naik = sqrt(pow(($titik_naik['long'] - $route['long_titik_akhir']), 2) + pow(($titik_naik['lat'] - $route['lat_titik_akhir']), 2));
+
+                if ($jarak_halte_virtual_ke_titik_naik > $angkot_radius_besar[0]['distance']) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Angkot tidak ditemukan'
+                    ], 404);
+                }
             }
+
+            // hitung jarak antara angkot dan halte virtual, apabila lebih jauh halte virtual maka return angkot tidak ditemukan
         } else {
             return response()->json([
                 'status' => 'error',
@@ -478,7 +498,7 @@ class FirebaseController extends Controller
                 'is_connected_with_driver' => false,
             ])->json()['data'];
 
-            
+
             // push data penumpang ke firebase
             $data_penumpang = $this->database->getReference('penumpang_naik_turun/angkot_' . $angkot_is_find . '/naik/perjalanan_' . $dataPerjalanan['id'])->set([
                 'angkot_id' => $angkot_is_find,

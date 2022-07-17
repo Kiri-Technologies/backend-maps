@@ -1,13 +1,14 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
 
 class ToggleController extends Controller
 {
- 
+
     protected $database;
 
     public function __construct()
@@ -56,11 +57,8 @@ class ToggleController extends Controller
             // ==============================================================================================================================
             $halteVirtual = Http::withToken(
                 $request->bearerToken()
-            )->get(env('API_ENDPOINT') . 'haltevirtual?route_id='.$routeIdAngkot)->json()['data'];
-
-        }
-
-        catch (\Exception $e) {
+            )->get(env('API_ENDPOINT') . 'haltevirtual?route_id=' . $routeIdAngkot)->json()['data'];
+        } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
@@ -68,27 +66,40 @@ class ToggleController extends Controller
         }
 
         try {
-            $arahAngkot = $this->database->getReference('/angkot/route_'.$routeIdAngkot.'/angkot_'.$angkot_id)->getValue()['arah'];
-        
+            $arahAngkot = $this->database->getReference('/angkot/route_' . $routeIdAngkot . '/angkot_' . $angkot_id)->getValue()['arah'];
+
             // 3. validasi apakah lat & long supir masuk di radius halte virtual tertentu (50 M)
             // ==============================================================================================================================
             foreach ($halteVirtual as $value) {
-                if($value['arah'] == $arahAngkot){
+                if ($value['arah'] == $arahAngkot) {
                     $lathalte = $value['lat'];
                     $longhalte = $value['long'];
-                    
+
                     // jarak 50 M
                     $radius = 0.0001 * 5;
-    
+
                     // 4. kalau dia masuk radius halte virtual update data is_waiting_passenger ke firebase sesuai id angkot, terus return success
                     // ==============================================================================================================================
                     if (($lathalte - $radius) < $lat && $lat < ($lathalte + $radius) && ($longhalte - $radius) < $long && $long <  ($longhalte + $radius)) {
-                        
+
                         // update data is_waiting_passenger ke firebase sesuai id angkot
                         $this->database->getReference('angkot/' . 'route_' . $routeIdAngkot . '/angkot_' . $angkot_id . "/")->update([
                             'is_waiting_passengers' => $is_waiting_for_passenger,
                         ]);
-    
+
+                        date_default_timezone_set('Asia/Jakarta');
+                        $date = date('Y-m-d H:i:s');
+
+                        if ($is_waiting_for_passenger) {
+                            $this->database->getReference('setpoints/setpoint_' . $value['id'] . '/prioritas/angkot_' . $angkot_id)->update([
+                                'angkot_id' => $angkot_id,
+                                'timestamp' => $date
+                            ]);
+                        } else if (!$is_waiting_for_passenger) {
+                            $this->database->getReference('setpoints/setpoint_' . $value['id'] . '/prioritas/angkot_' . $angkot_id)->remove();
+                        }
+
+
                         return response()->json([
                             'status' => 'success',
                             'message' => 'Berhasil mengubah status is_waiting_passenger',
@@ -96,16 +107,14 @@ class ToggleController extends Controller
                     }
                 }
             }
-    
+
             // 5. kalau gamasuk radius halte virtual, return gagal mengubah ngetem karena gak lagi di deket halte virtual
             // ==============================================================================================================================
             return response()->json([
                 'status' => 'failed',
                 'message' => 'Gagal mengubah status is_waiting_passenger',
             ], 400);
-        }
-
-        catch (\Exception $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
@@ -150,12 +159,10 @@ class ToggleController extends Controller
             return response()->json([
                 'status' => 'success',
             ]);
-        }
-        catch (\Exception $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
             ]);
         }
     }
-
 }
