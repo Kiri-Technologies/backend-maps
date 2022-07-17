@@ -466,7 +466,6 @@ class FirebaseController extends Controller
             )->post(env('API_ENDPOINT') . 'perjalanan/create', [
                 'penumpang_id' => $request->input('user_id'),
                 'angkot_id' => "$angkot_is_find",
-                'history_id' => null,
                 'tempat_naik_id' => $request->input('titik_naik_id'),
                 'tempat_turun_id' => $request->input('titik_turun_id'),
                 // 'supir_id' => $angkot_supir['supir_id'],
@@ -479,7 +478,7 @@ class FirebaseController extends Controller
                 'is_connected_with_driver' => false,
             ])->json()['data'];
 
-
+            
             // push data penumpang ke firebase
             $data_penumpang = $this->database->getReference('penumpang_naik_turun/angkot_' . $angkot_is_find . '/naik/perjalanan_' . $dataPerjalanan['id'])->set([
                 'angkot_id' => $angkot_is_find,
