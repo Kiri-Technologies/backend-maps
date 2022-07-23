@@ -162,7 +162,7 @@ class AngkotController extends Controller
                     'pajak_tahunan' => $request->input('pajak_tahunan'),
                     'pajak_stnk' => $request->input('pajak_stnk'),
                     'kir_bulanan' => $request->input('kir_bulanan'),
-                ]);
+                ])->json();
 
                 if ($angkot_lumen['status'] != 'success') {
                     return response()->json(['error' => 'Failed to update angkot'], 400);
