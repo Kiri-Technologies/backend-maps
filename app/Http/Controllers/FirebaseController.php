@@ -142,15 +142,51 @@ class FirebaseController extends Controller
         }
 
 
-        $angkot_list = array_values($angkot_list);
+        // $angkot_list = array_values($angkot_list);
+        $angkot_sesuai_arah = array_values($angkot_list);
 
-        foreach ($angkot_list as $key => $angkot) {
-            $angkot_list[$key]['jarak'] = $this->getDistanceBetweenPoints($angkot['lat'], $angkot['long'], $route['lat_titik_akhir'], $route['long_titik_awal'])['kilometers'];
+
+        $angkot_list = [];
+
+        foreach ($angkot_sesuai_arah as $key => $angkot) {
+
+            if ($angkot_firebase_arah == $angkot['arah'] && $angkot['is_beroperasi'] == true) {
+                array_push($angkot_list, $angkot);
+            }
         }
 
-        usort($angkot_list, function ($a, $b) {
-            return $a['jarak'] - $b['jarak'];
-        });
+
+        foreach ($angkot_list as $key => $angkot) {
+
+            if ($angkot_firebase_arah == $route['titik_akhir']) {
+                $angkot_list[$key]['jarak'] = $this->getDistanceBetweenPoints($angkot['lat'], $angkot['long'], $route['lat_titik_akhir'], $route['long_titik_akhir'])['kilometers'];
+            } else {
+                $angkot_list[$key]['jarak'] = $this->getDistanceBetweenPoints($angkot['lat'], $angkot['long'], $route['lat_titik_awal'], $route['long_titik_awal'])['kilometers'];
+            }
+        }
+
+        // usort($angkot_list, function ($a, $b) {
+        //     return $a['jarak'] - $b['jarak'];
+        // });
+
+        $jarak_angkot_ke_ujung_trayek = array_column($angkot_list, 'jarak');
+
+        array_multisort($jarak_angkot_ke_ujung_trayek, SORT_DESC, $angkot_list);
+        
+        $angkot_sorted = [];
+
+        foreach ($jarak_angkot_ke_ujung_trayek as $key => $jarak) {
+            foreach ($angkot_list as $key => $angkot) {
+                if ($angkot['jarak'] == $jarak) {
+                    array_push($angkot_sorted, $angkot);
+                }
+            }
+            
+        }
+
+        $angkot_list = array_reverse($angkot_sorted);
+        // dd(array_reverse($angkot_sorted));
+
 
         foreach ($angkot_list as $key => $angkot) {
             if ($angkot_list[$key]['angkot_id'] == $id_angkot) {
@@ -202,7 +238,7 @@ class FirebaseController extends Controller
                     try {
                         $this->database->getReference('jarak_antar_angkot/angkot_' . $id_angkot)->set([
                             'angkot_id' => $id_angkot,
-                            'angkot_id_didepan' => null,
+                            'angkot_id_didepan' => 0,
                             'jarak_antar_angkot_km' => 0,
                             'jarak_antar_angkot_waktu' => 0,
                         ]);
@@ -270,6 +306,7 @@ class FirebaseController extends Controller
             return response()->json([
                 'status' => 'failed',
                 'message' => !$arr ? 'Failed to get data from database' : $arr,
+                // 'message' =>'Failed to get titik naik and titik turun data from database',
                 'data' => [],
             ], 400);
         }
@@ -491,7 +528,6 @@ class FirebaseController extends Controller
                 'angkot_id' => "$angkot_is_find",
                 'tempat_naik_id' => $request->input('titik_naik_id'),
                 'tempat_turun_id' => $request->input('titik_turun_id'),
-                // 'supir_id' => $angkot_supir['supir_id'],
                 'supir_id' => $angkot_supir['supir_id'] == null ? 'supir-123456' : $angkot_supir['supir_id'],
                 'nama_tempat_naik' => $titik_naik['nama_lokasi'],
                 'nama_tempat_turun' => $titik_turun['nama_lokasi'],
