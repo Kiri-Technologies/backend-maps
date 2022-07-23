@@ -83,7 +83,7 @@ class FirebaseController extends Controller
         try {
             if (($lat_awal - $radius) < $request->lat && $request->lat < ($lat_awal + $radius) && ($long_awal - $radius) < $request->long && $request->long <  ($long_awal + $radius)) {
                 $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . "/")->set([
-                    'angkot_id' => $id_angkot,
+                    'angkot_id' => (int) $id_angkot,
                     'arah' => $route['titik_awal'],
                     "is_beroperasi" => true,
                     "is_full" => false,
@@ -94,7 +94,7 @@ class FirebaseController extends Controller
                 ]);
             } elseif (($lat_akhir - $radius) < $request->lat && $request->lat < ($lat_akhir + $radius) && ($long_akhir - $radius) < $request->long && $request->long <  ($long_akhir + $radius)) {
                 $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . "/")->set([
-                    'angkot_id' => $id_angkot,
+                    'angkot_id' => (int) $id_angkot,
                     'arah' => $route['titik_akhir'],
                     "is_beroperasi" => true,
                     "is_full" => false,
@@ -107,7 +107,7 @@ class FirebaseController extends Controller
                 $angkot_firebase_arah = $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . '/arah')->getValue();
 
                 $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . "/")->set([
-                    'angkot_id' => $id_angkot,
+                    'angkot_id' => (int) $id_angkot,
                     'arah' => $angkot_firebase_arah,
                     "is_beroperasi" => true,
                     "is_full" => false,
@@ -215,8 +215,8 @@ class FirebaseController extends Controller
 
                     try {
                         $this->database->getReference('jarak_antar_angkot/angkot_' . $id_angkot)->set([
-                            'angkot_id' => $id_angkot,
-                            'angkot_id_didepan' => $angkot_list[$key - 1]['angkot_id'],
+                            'angkot_id' => (int) $id_angkot,
+                            'angkot_id_didepan' => (int) $angkot_list[$key - 1]['angkot_id'],
                             'jarak_antar_angkot_km' => $jarakdidepan / 1000,
                             'jarak_antar_angkot_waktu' => $waktu_tempuh,
                         ]);
@@ -237,7 +237,7 @@ class FirebaseController extends Controller
                 } else {
                     try {
                         $this->database->getReference('jarak_antar_angkot/angkot_' . $id_angkot)->set([
-                            'angkot_id' => $id_angkot,
+                            'angkot_id' => (int) $id_angkot,
                             'angkot_id_didepan' => 0,
                             'jarak_antar_angkot_km' => 0,
                             'jarak_antar_angkot_waktu' => 0,
@@ -540,10 +540,10 @@ class FirebaseController extends Controller
 
             // push data penumpang ke firebase
             $data_penumpang = $this->database->getReference('penumpang_naik_turun/angkot_' . $angkot_is_find . '/naik/perjalanan_' . $dataPerjalanan['id'])->set([
-                'angkot_id' => $angkot_is_find,
-                'id_perjalanan' => $dataPerjalanan['id'],
-                'id_titik_naik' => $titik_naik['id'],
-                'id_titik_turun' => $titik_turun['id'],
+                'angkot_id' => (int) $angkot_is_find,
+                'id_perjalanan' => (int) $dataPerjalanan['id'],
+                'id_titik_naik' => (int) $titik_naik['id'],
+                'id_titik_turun' => (int) $titik_turun['id'],
                 'id_user' => $request->input('user_id'),
                 'titik_naik' => $titik_naik['nama_lokasi'],
                 'titik_turun' => $titik_turun['nama_lokasi'],

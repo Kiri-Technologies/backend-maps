@@ -63,8 +63,8 @@ class SetpointController extends Controller
                 'lat' => (float) $halte_virtual['data']['lat'],
                 'long' => (float) $halte_virtual['data']['long'],
                 'nama_lokasi' => $halte_virtual['data']['nama_lokasi'],
-                'route_id' => $halte_virtual['data']['route_id'],
-                'setpoint_id' => $halte_virtual['data']['id'],
+                'route_id' => (int) $halte_virtual['data']['route_id'],
+                'setpoint_id' => (int) $halte_virtual['data']['id'],
             ]);
         } catch (\Exception $e) {
             //return error message
@@ -131,8 +131,8 @@ class SetpointController extends Controller
                 'lat' => (float) $request->input('lat'),
                 'long' => (float) $request->input('long'),
                 'nama_lokasi' => $request->input('nama_lokasi'),
-                'route_id' => $request->input('route_id'),
-                'setpoint_id' => $halte_virtual['data']['id'],
+                'route_id' => (int) $request->input('route_id'),
+                'setpoint_id' => (int) $halte_virtual['data']['id'],
             ]);
         } catch (\Exception $e) {
             //return error message

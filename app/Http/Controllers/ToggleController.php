@@ -92,7 +92,7 @@ class ToggleController extends Controller
 
                         if ($is_waiting_for_passenger) {
                             $this->database->getReference('setpoints/setpoint_' . $value['id'] . '/prioritas/angkot_' . $angkot_id)->update([
-                                'angkot_id' => $angkot_id,
+                                'angkot_id' => (int) $angkot_id,
                                 'timestamp' => $date
                             ]);
                         } else if (!$is_waiting_for_passenger) {
