@@ -104,8 +104,11 @@ class FirebaseController extends Controller
                     'owner_id' => $angkot['user_owner']['id'],
                 ]);
             } else {
+                $angkot_firebase_arah = $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . '/arah')->getValue();
+
                 $this->database->getReference('angkot/' . 'route_' . $route['id'] . '/angkot_' . $id_angkot . "/")->set([
                     'angkot_id' => $id_angkot,
+                    'arah' => $angkot_firebase_arah,
                     "is_beroperasi" => true,
                     "is_full" => false,
                     "is_waiting_passengers" => false,
