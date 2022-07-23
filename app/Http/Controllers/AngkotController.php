@@ -78,7 +78,7 @@ class AngkotController extends Controller
 
                 // also put the data into firebase
                 $angkot = $this->database->getReference('angkot/route_' . $angkot_lumen['data']['route_id'] . '/angkot_' . $angkot_lumen['data']['id'])->set([
-                    'angkot_id' => $angkot_lumen['data']['id'],
+                    'angkot_id' => (int) $angkot_lumen['data']['id'],
                     'is_beroperasi' => false,
                     'is_full' => false,
                     'is_waiting_passengers' => false,
@@ -89,7 +89,7 @@ class AngkotController extends Controller
                 ]);
 
                 $penumpang_naik_turun = $this->database->getReference('jarak_antar_angkot/angkot_' . $angkot_lumen['data']['id'])->set([
-                    'angkot_id' => $angkot_lumen['data']['id'],
+                    'angkot_id' => (int) $angkot_lumen['data']['id'],
                     'jarak_antar_angkot_km' => 0,
                     'jarak_antar_angkot_waktu' => 0,
                 ]);
