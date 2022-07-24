@@ -112,7 +112,7 @@ class ToggleController extends Controller
             // ==============================================================================================================================
             return response()->json([
                 'status' => 'failed',
-                'message' => 'Gagal mengubah status is_waiting_passenger',
+                'message' => 'Angkot diluar radius halte virtual',
             ], 400);
         } catch (\Exception $e) {
             return response()->json([
