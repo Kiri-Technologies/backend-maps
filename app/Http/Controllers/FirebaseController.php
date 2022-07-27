@@ -648,9 +648,10 @@ class FirebaseController extends Controller
             );
             // delete data perjalanan
             $delete_perjalanan = $this->database->getReference('penumpang_naik_turun/angkot_' . $request->input('angkot_id') . '/naik/perjalanan_' . $request->input('perjalanan_id'))->remove();
-            $update_data_perjalanan = Http::withHeaders([
-                'Authorization' => env('TOKEN')
-            ])->post(env('API_ENDPOINT') . 'perjalanan/' . $request->input('perjalanan_id') . '/update', [
+
+            $update_data_perjalanan = Http::withToken(
+                $request->bearerToken()
+            )->post(env('API_ENDPOINT') . 'perjalanan/' . $request->input('perjalanan_id') . '/update', [
                 'is_done' => false,
                 'is_connected_with_driver' => true,
             ])->json()['data'];
